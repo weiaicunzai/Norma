@@ -1,0 +1,14 @@
+__pycache__/*
+__pycache__/
+*.png
+*.jpg
+^/*.py
+# test_*
+test_camlon16
+test_wsi
+test_wsi_bs16_end_half
+test_wsi_bs16_end_whole
+test_wsi_bs8_end_half
+test_wsi_bs8_end_half_dataset2
+tmp
+tmp1

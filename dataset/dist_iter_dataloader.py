@@ -15,6 +15,9 @@ class DistWSIDataLoader:
 
         self.wsis = camlon16_data(wis_img_dir, label_fn=camlon16_label_fn)
 
+        if dist is not None:
+            num_gpus dist.get_world_size()
+
 
         # for idx, wsi_path in enumerate(glob.iglob(os.path.join(wis_img_dir, '**', '*.tif'), recursive=True)):
 

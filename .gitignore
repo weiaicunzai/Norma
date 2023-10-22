@@ -12,3 +12,4 @@ test_wsi_bs8_end_half
 test_wsi_bs8_end_half_dataset2
 tmp
 tmp1
+test_mask2json

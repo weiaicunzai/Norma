@@ -36,11 +36,13 @@ class CAMLON16Lable:
                     label = 0
                 elif row[1] == 'Tumor':
                     label = 1
-                else:
-                    self.name2label[row[0]] = label
+                # else:
+                self.name2label[row[0]] = label
 
             # for row in spamreader:
                 # print(row)
+
+        # print(self.name2label)
     def __call__(self, filename):
         basename = os.path.basename(filename)
         # print(basename)
@@ -49,7 +51,7 @@ class CAMLON16Lable:
         elif 'normal' in basename:
             return 0
         elif 'test' in basename:
-            return self.name2label[os.path.basename(filename)]
+            return self.name2label[os.path.basename(filename).split('.')[0]]
         else:
             raise ValueError('wrong filename {}'.format(filename))
 

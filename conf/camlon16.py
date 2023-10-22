@@ -19,8 +19,6 @@ csv_file='/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing
 
 camlon16_label_fn = CAMLON16Lable(csv_file=csv_file)
 
-# mask_path
-
 
 def camlon16_wsi_filenames(data_set):
     outputs = []

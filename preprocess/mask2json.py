@@ -455,17 +455,18 @@ if __name__ == '__main__':
     path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/tumor/'
     dest_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_json/tumor/'
 
-    # write_json(path, dest_dir, 512, 5)
-    write_json(path, dest_dir, 512, 20)
+    #write_json(path, dest_dir, 512, 5)
+    # write_json(path, dest_dir, 512, 20)
 
     path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/normal/'
     dest_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_json/normal/'
 
     # write_json(path, dest_dir)
-    write_json(path, dest_dir, 512, 20)
+    # write_json(path, dest_dir, 512, 5)
+    # write_json(path, dest_dir, 512, 20)
 
     path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/images/'
     dest_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/jsons'
 
-    # write_json(path, dest_dir, 512, 5)
-    write_json(path, dest_dir, 512, 20)
+    write_json(path, dest_dir, 512, 5)
+    # write_json(path, dest_dir, 512, 20)

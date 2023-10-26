@@ -2,7 +2,7 @@ import os
 import glob
 
 
-from dataset.utils import CAMLON16Lable
+from dataset.utils import CAMLON16Label
 
 train_dirs = {
     'wsis': ['/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/normal/', '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/tumor/'],
@@ -17,7 +17,7 @@ test_dirs = {
 
 _csv_file='/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/reference.csv'
 
-camlon16_label_fn = CAMLON16Lable(csv_file=_csv_file)
+camlon16_label_fn = CAMLON16Label(csv_file=_csv_file)
 
 
 # def camlon16_wsi_filenames(data_set):

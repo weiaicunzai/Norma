@@ -7,7 +7,7 @@ import torch
 import torch.distributed as dist
 
 
-def init_process(backend='gloo'):
+def init_process():
     """ Initialize the distributed environment. """
     rank = int(os.environ['LOCAL_RANK'])
     size = int(os.environ['LOCAL_WORLD_SIZE'])

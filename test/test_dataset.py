@@ -63,7 +63,7 @@ def test_camlon16():
             transforms.RandomApply(
                 transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
                 # p=0.3
-                p=1
+                p=0.3
             ),
             transforms.RandomGrayscale(p=0.1),
             transforms.RandomHorizontalFlip(p=0.5),

@@ -275,6 +275,8 @@ class WSIDataLoader:
     def split_wsis(self, wsis):
         # num_samples = math.ceil(len(wsis) / self.num_workers)
 
+        assert len(wsis) >= self.batch_size
+
         if self.drop_last:
             factor = math.floor(len(wsis) / self.batch_size)
             num_wsis_total = self.batch_size * factor

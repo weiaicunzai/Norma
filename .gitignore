@@ -13,3 +13,11 @@ test_wsi_bs8_end_half_dataset2
 tmp
 tmp1
 test_mask2json
+.vscode
+mask2json_normal_5
+mask2json_test
+mask2json_test_5
+mask2json_training_normal
+mask2json_training_tumor
+mask2json_tumor_5
+run.sh

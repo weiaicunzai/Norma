@@ -19,7 +19,7 @@ from .wsi import WSI
 from itertools import cycle
 
 
-class CAMLON16Lable:
+class CAMLON16Label:
     def __init__(self, csv_file):
         self.csv_file = csv_file
         # for line in open()

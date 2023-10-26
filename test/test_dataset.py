@@ -62,7 +62,8 @@ def test_camlon16():
             # transforms.RandomCrop(img_size),
             transforms.RandomApply(
                 transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
-                p=0.3
+                # p=0.3
+                p=1
             ),
             transforms.RandomGrayscale(p=0.1),
             transforms.RandomHorizontalFlip(p=0.5),
@@ -119,7 +120,9 @@ def test_camlon16():
     for i in dataset:
         #  print(i)
         i[0]['img'].save('tmp1/{}.jpg'.format(count))
-        count += 4
+        count += 1
+        if count > 100:
+            break
 
     end = time.time()
     print((end - start) / count)

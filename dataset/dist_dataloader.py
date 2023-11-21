@@ -1,20 +1,11 @@
-import torch
-
-import glob
-import os
 import math
-import random
-# from itertools import chain, cycle
-import itertools
 
-
-# from . wsi import
-
+import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import default_collate
 import torch.distributed as dist
-from .wsi_reader import camlon16_wsis
-# from conf.camlon16 import camlon16_label_fn
+
+from utils.utils import cycle
 
 
 class DistWSIDataLoader:
@@ -103,6 +94,8 @@ class DistWSIDataLoader:
                 num_workers=1) for dataset in self.datasets
         ]
 
+        # self.counter = 0
+
         # rank = dist.get_ran()
         # subsample =
     # def slice_samples(self, wsis, num_chunks, rank):
@@ -158,6 +151,7 @@ class DistWSIDataLoader:
         # num_samples = math.ceil(len(wsis) / self.num_workers)
 
         # training samples have to be larger than batch_size
+        # print(len(wsis), self.batch_size, self)
         assert len(wsis) >= self.batch_size
 
         if self.drop_last:
@@ -170,7 +164,8 @@ class DistWSIDataLoader:
         # print(num_wsis_total, self.batch_size, factor)
 
         tmp_wsis = []
-        cycle_wsis = itertools.cycle(wsis)
+        # cycle_wsis = itertools.cycle(wsis)
+        cycle_wsis = cycle(wsis)
         while num_wsis_total:
             tmp_wsis.append(next(cycle_wsis))
             num_wsis_total -= 1
@@ -245,7 +240,7 @@ class DistWSIDataLoader:
         max_seq = self.max_seq_per_gpu()
         # print(outputs)
         max_seq = torch.tensor(max_seq)
-        print(max_seq, rank)
+        # print(max_seq, rank)
         # max_seq = torch.tensor(max_seq).to(rank)
         # print(max_seq, rank)
 
@@ -332,6 +327,7 @@ class DistWSIDataLoader:
     def get_subsample(self):
         """get wsis for each gpu"""
         rank = self.dist.get_rank()
+        print(len(self.wsis), self.num_replicas)
         num_samples = math.ceil(len(self.wsis) / self.num_replicas)
         # print('num_samples', num_samples)
         subsample = self.wsis[rank * num_samples: (rank + 1) * num_samples]
@@ -356,11 +352,38 @@ class DistWSIDataLoader:
 
         return outputs
 
+    # def is_last(self, batch):
+    #     outputs = []
+    #     global_seq_len = self.datasets[0].global_seq_len
+    #     self.counter += 1
+    #     #if self.counter == global_seq_len:
+    #     #    self.counter = 0
+    #     #else:
+    #     #    self.counter += 1
+
+    #     for each_loader in batch:
+    #         for each_sample in each_loader:
+    #             assert isinstance(each_sample, dict)
+    #             if self.counter < global_seq_len:
+    #                 each_sample['is_last'] = 0
+
+    #             if self.counter == global_seq_len:
+    #                 each_sample['is_last'] = 1
+
+    #             outputs.append(each_sample)
+
+    #     if self.counter == global_seq_len:
+    #         self.counter = 0
+
+    #     return outputs
+
     def __iter__(self):
 
         # print(self.dataloaders, self.dist.get_rank())
 
+        # print('before??????')
         self.update_global_seq_len()
+        # print('after ??????')
 
         for data_parts in zip(*self.dataloaders):
             # print('data_parts', data_parts)
@@ -369,8 +392,10 @@ class DistWSIDataLoader:
                 #print(data_part.keys())
                 # for data in data_part:
                     # print(data)
+            # data_parts = self.is_last(data_parts)
             data_parts = self.flatten(data_parts)
             data_parts = default_collate(data_parts)
+            # print(data_parts)
             # print(data_parts.keys())
             yield data_parts
 

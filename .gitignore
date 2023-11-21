@@ -21,3 +21,13 @@ mask2json_training_normal
 mask2json_training_tumor
 mask2json_tumor_5
 run.sh
+records
+run1.sh
+tensor.pt
+test.pkl
+test.pt
+test_cc
+test_cc1
+test_time
+train/checkpoint
+train_first_time

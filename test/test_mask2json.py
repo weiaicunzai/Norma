@@ -1,12 +1,10 @@
 import sys
 import os
 
-# os.path.append()
 sys.path.append(os.getcwd())
-# from dataset import WSI
+from dataset import WSI
 from dataset import CAMLON16Lable
 
-from itertools import cycle
 
 from preprocess.mask2json import MaskConverter
 

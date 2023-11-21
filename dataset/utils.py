@@ -1,23 +1,32 @@
 
 
 # from torch.utils.data import Data
-import glob
+# import glob
 import os
-from typing import Any
+# from typing import Any
 
-import torch
-from torch.utils.data import Dataset, IterableDataset
+# import torch
+# from torch.utils.data import Dataset, IterableDataset
 # import openslide
 # import cv2
 # import queue
-import random
+# import random
 import csv
-import warnings
+# import warnings
+
+from torchvision import transforms
+
 
 # from preprocess import utils
-from .wsi import WSI
-from itertools import cycle
+# from .wsi import WSI
+# from itertools import cycle
+#from .dataloader import WSIDataLoader
+#from .dist_dataloader import DistWSIDataLoader
 
+# from dataset.aa import WSIDataLoader
+from .dataloader import WSIDataLoader
+# from dataset.aa import DistWSIDataLoader
+from .dist_dataloader import DistWSIDataLoader
 
 class CAMLON16Label:
     def __init__(self, csv_file):
@@ -313,3 +322,103 @@ class CAMLON16Label:
 ##     for col in range(0, mask.shape[1], 8):
 ##         print(row,col)
 #
+
+def get_num_classes(dataset_name):
+    if dataset_name == 'cam16':
+        return 2
+
+
+def build_transforms(img_set):
+    assert img_set in ['val', 'train', 'test']
+
+    img_size=(256, 256)
+    if img_set == 'train':
+        trans = transforms.Compose([
+            transforms.RandomRotation(30),
+            transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
+            # transforms.RandomCrop(img_size),
+            transforms.RandomApply(
+                transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
+                p=0.3
+            ),
+            transforms.RandomGrayscale(p=0.1),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomVerticalFlip(p=0.5),
+            transforms.ToTensor(),
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ])
+
+
+    elif img_set in ['val', 'test']:
+        trans = transforms.Compose([
+            # transforms.RandomRotation(30),
+            # transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
+            # # transforms.RandomCrop(img_size),
+            # transforms.RandomApply(
+            #     transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
+            #     p=0.3
+            # ),
+            # transforms.RandomGrayscale(p=0.1),
+            # transforms.RandomHorizontalFlip(p=0.5),
+            # transforms.RandomVerticalFlip(p=0.5),
+            transforms.Resize(img_size),
+            transforms.ToTensor(),
+            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        ])
+
+    else:
+        raise ValueError('wrong img_set value {}'.format(img_set))
+
+
+    return trans
+
+
+
+
+
+
+
+def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None):
+    assert isinstance(dist, bool)
+    assert img_set in ['val', 'train', 'test']
+
+    if dataset_name == 'cam16':
+        from dataset.wsi_reader import camlon16_wsis
+        from dataset.wsi_dataset import WSIDataset
+
+        wsis = camlon16_wsis(img_set)
+        dataset_cls = WSIDataset
+
+    trans = build_transforms(img_set)
+
+    if dist:
+        if img_set == 'train':
+            shuffle = True
+        else:
+            shuffle = False
+
+        dataloader = DistWSIDataLoader(
+            wsis,
+            # batch_size=17,
+            batch_size=batch_size,
+            num_gpus=num_gpus,
+            cls_type=dataset_cls,
+            num_workers=num_workers,
+            transforms=trans,
+            shuffle=shuffle
+        )
+    else:
+        dataloader = WSIDataLoader(
+            wsis,
+            # batch_size=17,
+            batch_size=batch_size,
+            # num_gpus=3,
+            cls_type=WSIDataset,
+            # num_workers=4,
+            num_workers=num_workers,
+            transforms=trans,
+            drop_last=True,
+        )
+
+
+    return dataloader

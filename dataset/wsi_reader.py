@@ -43,6 +43,7 @@ def camlon16_wsis(data_set, direction=-1):
     wsis = []
     for wsi_dir, json_dir in zip(dirs['wsis'], dirs['jsons']):
         for wsi_path in glob.iglob(os.path.join(wsi_dir, '**', '*.tif'), recursive=True):
+            print(wsi_path)
             basename = os.path.basename(wsi_path)
             json_path = os.path.join(json_dir, basename.replace('.tif', '.json'))
             # outputs.append({
@@ -50,6 +51,8 @@ def camlon16_wsis(data_set, direction=-1):
             #     'json': json_path
             # })
 
+            # import time
+            # t1 =time.time()
             wsi = WSI(
                 # filename['wsi'],
                 wsi_path,
@@ -61,6 +64,8 @@ def camlon16_wsis(data_set, direction=-1):
                 # label_fn=label_fn,
                 direction=direction
             )
+            # t2 = time.time()
+            # print('total: ', t2 - t1)
 
 
             # wsis.append(wsi)

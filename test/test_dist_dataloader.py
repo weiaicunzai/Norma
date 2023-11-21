@@ -12,7 +12,7 @@ from dataset.wsi_dataset import WSIDataset
 from utils.utils import init_process
 import torch.distributed as dist
 
-
+import dataset
 
 
 
@@ -41,20 +41,24 @@ def test():
             transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ])
 
-    dataloader = DistWSIDataLoader(
-        wsis,
-        batch_size=17,
-        num_gpus=3,
-        cls_type=WSIDataset,
-        num_workers=4,
-        transforms=trans,
-    )
+    # dataloader = DistWSIDataLoader(
+    #     wsis,
+    #     batch_size=17,
+    #     num_gpus=3,
+    #     cls_type=WSIDataset,
+    #     num_workers=4,
+    #     transforms=trans,
+    # )
+    train_dataloader = dataset.utils.build_dataloader('cam16', 'train', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
+    val_dataloader = dataset.utils.build_dataloader('cam16', 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
+
 
     import time
     start = time.time()
     count = 0
     for epoch in range(10):
-        for data in dataloader:
+        for data in val_dataloader:
+        # for data in train_dataloader:
             # print(data)
             # print(data['img'].shape, data['label'].shape, data['label'], dist.get_rank())
             count += 17

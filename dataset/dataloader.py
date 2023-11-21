@@ -12,8 +12,9 @@ import itertools
 from torch.utils.data import DataLoader
 from torch.utils.data import default_collate
 import torch.distributed as dist
-from .wsi_reader import camlon16_wsis
+# from .wsi_reader import camlon16_wsis
 # from conf.camlon16 import camlon16_label_fn
+from utils.utils import cycle
 
 
 class WSIDataLoader:
@@ -55,7 +56,8 @@ class WSIDataLoader:
 
         # split batch size for each worker
         self.bs_list = self.split_batch_size()
-        # print(bs_list)
+
+
 
 
 
@@ -91,7 +93,12 @@ class WSIDataLoader:
         #     )
         #     for subset in wsis_per_worker
         # ]
+        # for ss in wsis_per_worker:
+            # print(len(ss))
         self.datasets = self.build_datasets(wsis_per_worker)
+
+        # import sys; sys.exit()
+        # print(self.datsaets)
 
         # print(datasets)
 
@@ -287,7 +294,8 @@ class WSIDataLoader:
         # print(num_wsis_total, self.batch_size, factor)
 
         tmp_wsis = []
-        cycle_wsis = itertools.cycle(wsis)
+        # cycle_wsis = itertools.cycle(wsis)
+        cycle_wsis = cycle(wsis)
         while num_wsis_total:
             tmp_wsis.append(next(cycle_wsis))
             num_wsis_total -= 1

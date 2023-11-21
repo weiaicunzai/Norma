@@ -1,11 +1,7 @@
-import os
-import queue
 import random
 import json
 
 import openslide
-import cv2
-import numpy as np
 
 
 
@@ -21,6 +17,7 @@ class WSI:
         # assert at_mag in [20, 40, 10, 5]
         # print(self)
         self.wsi = openslide.OpenSlide(wsi_path)
+
         with open(json_path) as f:
             json_data = f.read()
 

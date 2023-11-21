@@ -1,9 +1,13 @@
 import random
 import warnings
 # from itertools import cycle
-from utils.utils import cycle
-from torch.utils.data import IterableDataset, default_collate
+from utils.mics import cycle
+from torch.utils.data import IterableDataset
+import torch
+import cv2
+# default_collate
 
+from PIL import Image
 
 
 
@@ -204,7 +208,9 @@ class WSIDataset(IterableDataset):
             if not self.global_seq_len[max_len_idx]:
                 warnings.warn('max batch len equals 0')
                 continue
-            for _ in  range(self.global_seq_len[idx // self.batch_size]):
+            # for _ in  range(self.global_seq_len[idx // self.batch_size]):
+            max_len = self.global_seq_len[max_len_idx]
+            for patch_id in  range(max_len):
                 # print('ccccccccccc', i)
                 # sleep_time = 0.005 * len(batch_wsi)
                 # time.sleep(sleep_time)
@@ -217,9 +223,25 @@ class WSIDataset(IterableDataset):
                     outputs = []
                     for x in batch_wsi:
                         data = next(x).copy()
+                        # data = {
+                            # 'img': cv2.imread('test_512_patch.jpg'),
+                            # 'img': Image.open('test_512_patch.jpg'),
+                            # 'label': 1
+                        # }
                         # print(type(data['img']))
                         if self.trans is not None:
                             data['img'] = self.trans(data['img'])
+
+                        # data = {
+                        #     'img': torch.randn((3, 256, 256)),
+                        #     'label': torch.randn((3, 256, 256)),
+                        # }
+                        if patch_id < max_len - 1:
+                            data['is_last'] = 0
+                        else:
+                            data['is_last'] = 1
+
+                        # print(patch_id, max_len - 1, data['is_last'])
 
                         outputs.append(data)
 

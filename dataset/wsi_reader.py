@@ -3,9 +3,10 @@ import os
 import sys
 import glob
 
-import cv2
+# import cv2
+import lmdb
 
-from .wsi import WSI
+from .wsi import WSILMDB
 # from .camlon16 import CAMLON16Lable
 from conf import camlon16
 
@@ -41,23 +42,36 @@ def camlon16_wsis(data_set, direction=-1):
 
 
     wsis = []
-    for wsi_dir, json_dir in zip(dirs['wsis'], dirs['jsons']):
-        for wsi_path in glob.iglob(os.path.join(wsi_dir, '**', '*.tif'), recursive=True):
-            print(wsi_path)
-            basename = os.path.basename(wsi_path)
-            json_path = os.path.join(json_dir, basename.replace('.tif', '.json'))
+    # for wsi_dir, json_dir in zip(dirs['wsis'], dirs['jsons']):
+    lmdb_path = dirs['lmdb'][0]
+
+    # env = lmdb.open(db_path, readonly=True)
+
+    count = 0
+    env = lmdb.open(lmdb_path, readonly=True)
+    for json_dir in dirs['jsons']:
+        # for wsi_path in glob.iglob(os.path.join(wsi_dir, '**', '*.tif'), recursive=True):
+            # print(wsi_path)
+            # basename = os.path.basename(wsi_path)
+
+
+        for json_path in glob.iglob(os.path.join(json_dir, '**', '*.json'), recursive=True):
+            # json_path = os.path.join(json_dir, basename.replace('.tif', '.json'))
             # outputs.append({
             #     'wsi': wsi_path,
             #     'json': json_path
             # })
+            count += 1
 
             # import time
             # t1 =time.time()
-            wsi = WSI(
+            print(json_path, count)
+            wsi = WSILMDB(
                 # filename['wsi'],
-                wsi_path,
+                # wsi_path,
                 # mask_path(wsi_path),
                 json_path,
+                env=env,
                 # patch_size=512,
                 # at_mag=5,
                 # random_rotate=True,
@@ -72,9 +86,8 @@ def camlon16_wsis(data_set, direction=-1):
 
             if wsi.num_patches > 0:
                 wsis.append(wsi)
-
             else:
-                print(wsi_path, 'is 0')
+                print(json_path, 'is 0')
 
     return wsis
 

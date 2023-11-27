@@ -50,11 +50,12 @@ class MyNet(nn.Module):
     def forward(self, x, is_last=None):
         # print(x.device, 'x.shape', device)
         x = self.vit(x)
-        x = self.head(x)
+        # x = self.head(x)
         logits = self.fc(x)
 
-        if is_last.sum() > 0:
+        # if
+        # if is_last.sum() > 0:
             # print('reset {}'.format(is_last.sum()))
-            self.head.reset()
+            # self.head.reset()
 
         return logits

@@ -1,6 +1,7 @@
 import os
 import sys
 sys.path.append(os.getcwd())
+from PIL import Image
 
 
 from torchvision import transforms
@@ -13,6 +14,29 @@ from dataset.dataloader import WSIDataLoader
 # from utils.utils import init_process
 # from dataset. import
 
+
+
+
+from torch.utils.data import Dataset
+
+class Test1(Dataset):
+    def __init__(self, trans):
+        super().__init__()
+        self.trans = trans
+
+    def __len__(self):
+        return 10000
+
+    def __getitem__(self, index):
+        img = Image.open('/data/hdd1/by/tmp_folder/lmdb_files/Ldbm_task/cat.jpeg')
+        if self.trans:
+            img = self.trans(image=img)['image']
+        return img
+
+
+# dataset = Test()
+# import torch
+# dataloader = torch.utils.data.DataLoader(dataset, batch_size=17, num_workers=4)
 
 
 
@@ -48,24 +72,164 @@ def test_camlon16_num_workers():
 
     wsis = camlon16_wsis('train')
 
-    wsis = wsis[:20]
+    # wsis = wsis[:20]
 
 
     img_size = (256, 256)
     trans = transforms.Compose([
-            transforms.RandomRotation(30),
+            # transforms.RandomRotation(30),
             transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
+            # transforms.RandomApply(
+            #     transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
+            #     p=0.5
+            # ),
+
+
+            transforms.RandomChoice
+                (
+                    [
+                        # nothing:
+                        transforms.Compose([]),
+
+                        # h:
+                        transforms.RandomHorizontalFlip(p=1),
+
+                        # v:
+                        transforms.RandomVerticalFlip(p=1),
+
+                        # hv:
+                        transforms.Compose([
+                               transforms.RandomVerticalFlip(p=1),
+                               transforms.RandomHorizontalFlip(p=1),
+                        ]),
+
+                         #r90:
+                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+                        # transforms.MyRotate90(degrees=(90, 90), expand=True, p=1),
+                        # transforms.MyRotate90(p=1),
+                        transforms.RandomRotation(degrees=(90, 90)),
+
+                        # #r90h:
+                        transforms.Compose([
+                            # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+                            # transforms.MyRotate90(p=1),
+                            transforms.RandomRotation(degrees=(90, 90)),
+                            transforms.RandomHorizontalFlip(p=1),
+                        ]),
+
+                        # #r90v:
+                        transforms.Compose([
+                            # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+                            # transforms.MyRotate90(p=1),
+                            transforms.RandomRotation(degrees=(90, 90)),
+                            transforms.RandomVerticalFlip(p=1),
+                        ]),
+
+                        # #r90hv:
+                        transforms.Compose([
+                            # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+                            # transforms.MyRotate90(p=1),
+                            transforms.RandomRotation(degrees=(90, 90)),
+                            transforms.RandomHorizontalFlip(p=1),
+                            transforms.RandomVerticalFlip(p=1),
+                        ]),
+                    ]
+                ),
+
+            transforms.RandAugment(num_ops=2, magnitude=9, num_magnitude_bins=10),
             # transforms.RandomCrop(img_size),
-            transforms.RandomApply(
-                transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
-                p=0.3
-            ),
-            transforms.RandomGrayscale(p=0.1),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomVerticalFlip(p=0.5),
+            #transforms.RandomApply(
+            #    transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
+            #    p=0.3
+            #),
+            #transforms.RandomGrayscale(p=0.1),
+            # transforms.RandomHorizontalFlip(p=0.5),
+            # transforms.RandomVerticalFlip(p=0.5),
             transforms.ToTensor(),
             transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ])
+
+
+    import albumentations as A
+    trans = A.Compose([
+                A.RandomResizedCrop(height=img_size[0], width=img_size[1], scale=(0.5, 2.0), ratio=(1, 1), always_apply=True),
+                # transforms.RandomChoice
+                A.OneOf(
+                    [
+                        # nothing:
+                        A.Compose([]),
+
+                        # h:
+                        # transforms.RandomHorizontalFlip(p=1),
+                        A.HorizontalFlip(p=1),
+
+                        # v:
+                        # transforms.RandomVerticalFlip(p=1),
+                        A.VerticalFlip(p=1),
+
+                        # hv:
+                        # transforms.Compose([
+                        A.Compose([
+                               #transforms.RandomVerticalFlip(p=1),
+                               #transforms.RandomHorizontalFlip(p=1),
+                               A.VerticalFlip(p=1),
+                               A.HorizontalFlip(p=1),
+                        ]),
+
+                         #r90:
+                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+                        # transforms.MyRotate90(degrees=(90, 90), expand=True, p=1),
+                        # transforms.MyRotate90(p=1),
+                        # transforms.RandomRotation(degrees=(90, 90)),
+                        A.Rotate([90,90]),
+
+                        # #r90h:
+                        # transforms.Compose([
+                        A.Compose([
+                            # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+                            # transforms.MyRotate90(p=1),
+                            A.Rotate([90, 90]),
+                            # transforms.RandomHorizontalFlip(p=1),
+                            A.HorizontalFlip(p=1),
+                        ]),
+
+                        # #r90v:
+                        # transforms.Compose([
+                        A.Compose([
+                            # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+                            # transforms.MyRotate90(p=1),
+                            # transforms.RandomRotation(degrees=(90, 90)),
+                            A.Rotate([90, 90]),
+                            # transforms.RandomVerticalFlip(p=1),
+                            A.VerticalFlip(p=1)
+                        ]),
+
+                        # #r90hv:
+                        # transforms.Compose([
+                        A.Compose([
+                            # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+                            # transforms.MyRotate90(p=1),
+                            # transforms.RandomRotation(degrees=(90, 90)),
+                            A.Rotate([90, 90]),
+                            #transforms.RandomHorizontalFlip(p=1),
+                            #transforms.RandomVerticalFlip(p=1),
+                            A.HorizontalFlip(p=1),
+                            A.VerticalFlip(p=1),
+                        ]),
+                    ]
+                ),
+                A.ColorJitter(brightness=0.4, saturation=0.4, contrast=0.4, hue=0.1, p=1),
+                A.Compose([
+                    A.ToGray(p=1),
+                    A.ToRGB(p=1)
+                ], p=0.1)
+    ])
+
+    # img = Image.open('/data/hdd1/by/tmp_folder/lmdb_files/Ldbm_task/cat.jpeg')
+    # img = trans(img)
+    # img.save('here.jpg')
+
+    # import sys; sys.exit()
 
     dataloader = WSIDataLoader(
         wsis,
@@ -77,6 +241,11 @@ def test_camlon16_num_workers():
         drop_last=True,
     )
 
+    import torch
+    bs = 32
+    # dataset = Test1(trans=trans)
+    # dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, num_workers=4)
+
     # for i in
     count = 0
     import time
@@ -86,7 +255,10 @@ def test_camlon16_num_workers():
             # print(len(batch))
             # print(batch['img'].shape)
             # print(batch['label'].shape)
-            count += 16
+            print(batch.shape)
+            count += bs
+            end = time.time()
+            print((end - start) / count)
 
         print('end of each epoch')
         end = time.time()
@@ -119,10 +291,14 @@ def test_dataset_within_dataloader():
         num_workers=1
     )
 
+    import time
+    t1 = time.time()
     for epoch in range(10):
-        for data in dataloader:
+        for idx, data in enumerate(dataloader):
             print(data['img'].shape)
             print(data['label'].shape)
+            t2 = time.time() - t1
+            print(t2 / idx)
 
         print(dataloader.dataset.count, 'out')
         dataloader.dataset.update()

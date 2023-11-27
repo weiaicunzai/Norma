@@ -4,13 +4,14 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import default_collate
 import torch.distributed as dist
+import lmdb
 
-from utils.utils import cycle
+# from utils.utils import cycle
 
 
 class DistWSIDataLoader:
     # DistributedSampler does not support iterabledataset
-    def __init__(self,  wsis, batch_size, num_gpus, cls_type, num_workers=4, shuffle=True, drop_last=True, transforms=None):
+    def __init__(self,  lmdb_path, wsis, batch_size, num_gpus, cls_type, num_workers=4, shuffle=True, drop_last=True, transforms=None):
         # self.data_set = data_set
 
         self.wsis = wsis
@@ -22,6 +23,7 @@ class DistWSIDataLoader:
         self.cls_type = cls_type
         self.shuffle = shuffle
         self.trans = transforms
+        self.lmdb_path = lmdb_path
 
 
         # multi gpu training
@@ -119,9 +121,19 @@ class DistWSIDataLoader:
 
     #     # return num_samples
 
+
+    def cycle(self, iterable):
+        while True:
+            for data in iterable:
+                yield data
+
+
     def build_datasets(self, wsis):
         datasets = []
         for sub_wsis, bs in zip(wsis, self.bs_list):
+            env = lmdb.open(self.lmdb_path, readonly=True, lock=False)
+            for w in sub_wsis:
+                w.env = env
             datasets.append(
                 self.cls_type(
                     wsis=sub_wsis,
@@ -165,7 +177,7 @@ class DistWSIDataLoader:
 
         tmp_wsis = []
         # cycle_wsis = itertools.cycle(wsis)
-        cycle_wsis = cycle(wsis)
+        cycle_wsis = self.cycle(wsis)
         while num_wsis_total:
             tmp_wsis.append(next(cycle_wsis))
             num_wsis_total -= 1

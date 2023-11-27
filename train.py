@@ -164,8 +164,6 @@ def main(args):
 
     import time
     # time = time
-    t1 = time.time()
-    count = 0
     # net = MyNet(n_classes=2, n_dim=384, interval=100, dis_mem_len=64).to(dist.get_rank())
     # net = vit_base().to(dist.get_rank())
     print(sum([p.numel() for p in net.parameters()]))
@@ -174,9 +172,10 @@ def main(args):
     # import sys; sys.exit()
     # for i in range(10000):
     for i in range(args.epoch):
+        t1 = time.time()
+        count = 0
         for iter, data in enumerate(train_dataloader):
              # break
-            #  count += 1
             #  print(count)
             #print(data)
             img = data['img'].to(dist.get_rank())
@@ -209,7 +208,9 @@ def main(args):
             optimizer.zero_grad()
 
             if dist.get_rank() == 0:
-                print('epoch {}, iter {}, loss is {}'.format(i, iter, loss))
+                t2 = time.time()
+                count += img.shape[0] * 2
+                print('epoch {}, iter {}, loss is {}, avg time {:02f}'.format(i, iter, loss, (t2 - t1) / count))
 
             # for name, param in net.named_parameters():
             #     if param.grad is None:
@@ -260,9 +261,9 @@ def main(args):
                         print('update result')
                         metric.update(pred, label)
 
+        acc = metric.compute()
 
         if dist.get_rank() == 0:
-            acc = metric.compute()
             # acc = 0.03
             print(f"Accuracy on all data: {acc}")
 

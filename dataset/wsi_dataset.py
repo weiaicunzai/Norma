@@ -1,14 +1,13 @@
 import random
 import warnings
 # from itertools import cycle
-from utils.mics import cycle
+# from utils.mics import cycle
 from torch.utils.data import IterableDataset
 import torch
 import cv2
 # default_collate
 
 from PIL import Image
-
 
 
 class WSIDataset(IterableDataset):
@@ -180,6 +179,13 @@ class WSIDataset(IterableDataset):
     #     return num_patch_seq
 
     # def __getitem__(self, idx):
+
+    def cycle(self, iterable):
+     while True:
+         for data in iterable:
+             yield data
+
+
     def __iter__(self):
 
         for idx in range(0, len(self.wsis), self.batch_size):
@@ -201,7 +207,7 @@ class WSIDataset(IterableDataset):
             # max_batch_lenth = max([len(x) for x in batch_wsi])
 
             # print([x.wsi_name for x in batch_wsi])
-            batch_wsi = [cycle(x) for x in batch_wsi]
+            batch_wsi = [self.cycle(x) for x in batch_wsi]
             # for i in range(self.max_batch_len):
 
             max_len_idx = idx // self.batch_size

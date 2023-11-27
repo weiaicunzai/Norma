@@ -4,23 +4,51 @@ import glob
 
 from dataset.utils import CAMLON16Label
 
+# import sys; sys.exit()
+
 _dataset_path = '/data/ssd1/by/CAMELYON16/'
 # _dataset_path = '/data/smb/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/'
+
+# train_dirs = {
+#     # 'wsis': ['/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/normal/', '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/tumor/'],
+#     # 'jsons': ['/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_json/normal/patch_size_512_at_mag_5', '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_json/tumor/patch_size_512_at_mag_5/']
+#     'wsis': [os.path.join(_dataset_path, 'training/normal/'), os.path.join(_dataset_path, 'training/tumor/')],
+#     # 'jsons': [os.path.join(_dataset_path, 'training_json/normal/patch_size_512_at_mag_5'), os.path.join(_dataset_path, 'training_json/tumor/patch_size_512_at_mag_5/')]
+#     'jsons': [os.path.join(_dataset_path, 'training_json/normal/patch_size_512_at_mag_20'), os.path.join(_dataset_path, 'training_json/tumor/patch_size_512_at_mag_20/')]
+# }
+
+# test_dirs = {
+#     # 'wsis': ['/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/images/'],
+#     'wsis': [os.path.join(_dataset_path, 'testing/images/')],
+#     # 'jsons' : [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_5/')]
+#     'jsons' : [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_20/')]
+# }
 
 train_dirs = {
     # 'wsis': ['/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/normal/', '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/tumor/'],
     # 'jsons': ['/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_json/normal/patch_size_512_at_mag_5', '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_json/tumor/patch_size_512_at_mag_5/']
     'wsis': [os.path.join(_dataset_path, 'training/normal/'), os.path.join(_dataset_path, 'training/tumor/')],
     # 'jsons': [os.path.join(_dataset_path, 'training_json/normal/patch_size_512_at_mag_5'), os.path.join(_dataset_path, 'training_json/tumor/patch_size_512_at_mag_5/')]
-    'jsons': [os.path.join(_dataset_path, 'training_json/normal/patch_size_512_at_mag_20'), os.path.join(_dataset_path, 'training_json/tumor/patch_size_512_at_mag_20/')]
+    'jsons': [os.path.join(_dataset_path, 'training_json/normal/patch_size_512_at_mag_20'), os.path.join(_dataset_path, 'training_json/tumor/patch_size_512_at_mag_20/')],
+    'lmdb' : [os.path.join(_dataset_path, 'training_lmdb')]
 }
+
+# test_dirs = {
+#     # 'wsis': ['/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/images/'],
+#     'wsis': [os.path.join(_dataset_path, 'testing/images/')],
+#     # 'jsons' : [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_5/')]
+#     'jsons' : [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_20/')]
+# }
 
 test_dirs = {
     # 'wsis': ['/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/images/'],
     'wsis': [os.path.join(_dataset_path, 'testing/images/')],
     # 'jsons' : [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_5/')]
-    'jsons' : [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_20/')]
+    'jsons' : [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_20/')],
+    'lmdb' : [os.path.join(_dataset_path, 'testing_lmdb/')],
 }
+
+
 
 
 # _csv_file='/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/reference.csv'

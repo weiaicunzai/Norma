@@ -278,8 +278,8 @@ class VisionTransformer(nn.Module):
             # x =
         x = self.norm(x)
 
-        # return x[:, 0]
-        return x
+        return x[:, 0]
+        # return x
 
     def get_last_selfattention(self, x):
         x = self.prepare_tokens(x)

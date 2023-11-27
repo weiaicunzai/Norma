@@ -1,8 +1,11 @@
 import random
 import json
+import os
+import io
 
 import openslide
 
+from PIL import Image
 
 
 
@@ -328,10 +331,12 @@ class WSI:
             # count += 1
             # print(self.wsi_name)
             # assert count <= self.num_patches
+            # img_path = '/data/hdd1/by/tmp_folder/lmdb_files/Ldbm_task/cat.jpeg'
             yield {
                 'img': self.wsi.read_region(
                     *coord
                 ).convert('RGB'),
+                # 'img': Image.open(img_path),
                 'label': self.label,
                 # 'num_patches': self.num_patches
             }
@@ -696,3 +701,65 @@ class WSI:
 ## for i in a:
 ##     print(i)
 #
+
+
+
+class WSILMDB:
+    def __init__(self, json_path, direction, env=None):
+
+        """at_mag: extract patches at magnification xxx"""
+
+        self.env = env
+
+        with open(json_path) as f:
+            json_data = f.read()
+
+        parsed_json = json.loads(json_data)
+        self.label = parsed_json['label']
+        self.coords = parsed_json['coords']
+        self.num_patches = len(self.coords[0])
+
+        assert direction in [0, 1, 2, 3, 4, 5, 6, 7, -1]
+        self.direction = direction
+        self.json_patch = json_path
+
+
+    def shuffle(self):
+         self.coords
+
+
+    def __iter__(self):
+
+
+        if self.direction == -1:
+            coords = random.choice(self.coords)
+        else:
+            coords = self.coords[self.direction]
+
+        for coord in coords:
+            # with env.open()
+            # self.env = lmdb.open(db_path, readonly=True)
+            basename = os.path.basename(self.json_patch).replace('json', 'tif')
+            (x, y), level, (patch_size_x, patch_size_y) = coord
+                # print(x, y, level, patch_size_x, patch_size_y)
+            patch_id = '{basename}_{x}_{y}_{level}_{patch_size_x}_{patch_size_y}'.format(
+                basename=basename,
+                x=x,
+                y=y,
+                level=level,
+                patch_size_x=patch_size_x,
+                patch_size_y=patch_size_y)
+
+            with self.env.begin() as txn:
+                img_stream = txn.get(patch_id.encode())
+                img = Image.open(io.BytesIO(img_stream))
+
+
+
+            yield {
+                #'img': self.wsi.read_region(
+                #    *coord
+                #).convert('RGB'),
+                'img': img,
+                'label': self.label,
+            }

@@ -11,10 +11,10 @@ import itertools
 
 from torch.utils.data import DataLoader
 from torch.utils.data import default_collate
-import torch.distributed as dist
+# import torch.distributed as dist
 # from .wsi_reader import camlon16_wsis
 # from conf.camlon16 import camlon16_label_fn
-from utils.utils import cycle
+# from utils.utils import cycle
 
 
 class WSIDataLoader:
@@ -152,6 +152,10 @@ class WSIDataLoader:
 
 
 
+    def cycle(self, iterable):
+        while True:
+            for data in iterable:
+                yield data
 
     def split_batch_size(self):
         base = int(self.batch_size / self.num_workers)
@@ -295,7 +299,7 @@ class WSIDataLoader:
 
         tmp_wsis = []
         # cycle_wsis = itertools.cycle(wsis)
-        cycle_wsis = cycle(wsis)
+        cycle_wsis = self.cycle(wsis)
         while num_wsis_total:
             tmp_wsis.append(next(cycle_wsis))
             num_wsis_total -= 1

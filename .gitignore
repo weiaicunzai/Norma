@@ -31,3 +31,17 @@ test_cc1
 test_time
 train/checkpoint
 train_first_time
+lmdb_files
+checkpoint
+create_lmdb_train
+create_test_lmdb
+no_trans_lmdb_workers_0
+no_trans_lmdb_workers_0_no_imdecode
+no_trans_lmdb_workers_4
+no_trans_lmdb_workers_4_no_imdecode
+no_trans_opencv_workers_0
+no_trans_opencv_workers_4
+profiling
+profiling1
+std_mean
+train_vit_only

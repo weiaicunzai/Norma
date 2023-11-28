@@ -325,7 +325,7 @@ def test_lmdb_dataset():
 
     # dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, num_workers=4, shuffle=True)
     # dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, num_workers=4, shuffle=True, pin_memory=True)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, num_workers=4, shuffle=True, pin_memory=False)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, num_workers=0, shuffle=True, pin_memory=False)
 
     count = 0
     import time
@@ -344,23 +344,23 @@ def test_lmdb_dataset():
         for data in dataloader:
             # print(data)
         # for data in dataset:
-            count += 1
+            # count += 1
             # print(data['img'].shape)
             # print(data['label'].shape)
             # print(data['label'])
-           # count += data['img'].shape[0]
+            count += data['img'].shape[0]
         #    count += data['img'].shape[0]
         #    print(data['img'].shape)
            # break
             # cv2.imwrite('tmp/{}.jpg'.format(count), data['img'])
             t2 = time.time()
             # count+=1
-            # print((t2 - t1) / count)
+            print('sample_time:', (t2 - t1) / count, 'iter_time:', (t2 - t1) / (count / data['img'].shape[0]))
 
             # if count == 5000:
 
-            if count > iters:
-                break
+            # if count > iters:
+            #     break
 
         # pr.print_stats()
         # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)

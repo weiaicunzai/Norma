@@ -630,9 +630,14 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_g
     if dataset_name == 'cam16':
         from dataset.wsi_reader import camlon16_wsis
         from dataset.wsi_dataset import WSIDataset
+        # from dataset.wsi_dataset import WSIDatasetLMDB
         from conf.camlon16 import settings
 
-        wsis = camlon16_wsis(img_set)
+        if img_set == 'train':
+            direction = -1
+        else:
+            direction = 0
+        wsis = camlon16_wsis(img_set, direction=direction)
         dataset_cls = WSIDataset
 
     # if dataset_name == 'cam16_map':

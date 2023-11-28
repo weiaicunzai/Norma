@@ -2,10 +2,12 @@ import random
 import json
 import os
 import io
+# from PIL import Image
 
 import openslide
+import cv2
+import numpy as np
 
-from PIL import Image
 
 
 
@@ -281,8 +283,8 @@ class WSI:
 
     #     self.grids = coords
     #     # return coords
-    def shuffle(self):
-         self.coords
+    # def shuffle(self):
+    #      self.coords
 
 
     def __iter__(self):
@@ -703,29 +705,92 @@ class WSI:
 #
 
 
+class PatchLabelMixIn:
+    def read_json(self, patch_json, json_path):
+        json_filename = os.path.basename(json_path)
+        patch_json_path = os.path.join(patch_json, json_filename)
 
-class WSILMDB:
-    def __init__(self, json_path, direction, env=None):
+        json_data = json.load(open(json_path))
+        # print(json_data)
+        # res = {}
+        # if json_path == '/data/ssd1/by/CAMELYON16/testing/jsons/patch_size_512_at_mag_20/test_114.json':
+            # import sys; sys.exit()
+
+        # print()
+        if json_filename == 'test_114.json':
+            print(patch_json_path, 'cccccccccccc')
+            import sys; sys.exit()
+        if os.path.exists(patch_json_path):
+            # patch_label = json.dump(patch_json_path)
+            patch_label = json.load(open(patch_json_path))
+            json_data.update(patch_label)
+            # print('updated', patch_json_path)
+
+        return json_data
+
+
+class FiterCoordsMixIn:
+    def parse_coords(self, parsed_json, json_path):
+        wsi_label = parsed_json['label']
+
+        # bg
+        if wsi_label == 0:
+            coords = parsed_json['coords']
+            return coords
+        else:
+            res = []
+            coords = parsed_json['coords']
+            basename = os.path.basename(json_path).replace('json', 'tif')
+            for coord_direction in coords:
+                tmp = []
+                for coord in coord_direction:
+                    (x, y), level, (patch_size_x, patch_size_y) = coord
+                        # print(x, y, level, patch_size_x, patch_size_y)
+                    patch_id = '{basename}_{x}_{y}_{level}_{patch_size_x}_{patch_size_y}'.format(
+                        basename=basename,
+                        x=x,
+                        y=y,
+                        level=level,
+                        patch_size_x=patch_size_x,
+                        patch_size_y=patch_size_y)
+
+                    try:
+                        patch_label = parsed_json[patch_id]
+                    except:
+                        raise ValueError('{}'.format(json_path))
+
+                    # print(patch_label)
+                    if patch_label == 1:
+                        # print(patch_label)
+                        tmp.append(coord)
+
+                res.append(tmp)
+
+            return res
+
+
+class WSILMDB(PatchLabelMixIn, FiterCoordsMixIn):
+    def __init__(self, json_path, direction, patch_json_dir, env=None):
 
         """at_mag: extract patches at magnification xxx"""
 
         self.env = env
 
-        with open(json_path) as f:
-            json_data = f.read()
 
-        parsed_json = json.loads(json_data)
+        # parsed_json = json.loads(json_data)
+        parsed_json = self.read_json(patch_json_dir, json_path)
         self.label = parsed_json['label']
-        self.coords = parsed_json['coords']
+        # self.coords = parsed_json['coords']
+        self.coords = self.parse_coords(parsed_json, json_path)
         self.num_patches = len(self.coords[0])
+        self.parsed_json = parsed_json
 
         assert direction in [0, 1, 2, 3, 4, 5, 6, 7, -1]
         self.direction = direction
         self.json_patch = json_path
 
-
-    def shuffle(self):
-         self.coords
+    # def shuffle(self):
+        #  self.coords
 
 
     def __iter__(self):
@@ -752,7 +817,16 @@ class WSILMDB:
 
             with self.env.begin() as txn:
                 img_stream = txn.get(patch_id.encode())
-                img = Image.open(io.BytesIO(img_stream))
+                # img = Image.open(io.BytesIO(img_stream))
+                img = np.frombuffer(img_stream, np.uint8)
+                img = cv2.imdecode(img, -1)
+
+            # patch_label = self.parse_coords.get(patch_id, 0)
+
+
+        if self.trans:
+            img = self.trans(image=img)['image']
+
 
 
 
@@ -763,3 +837,66 @@ class WSILMDB:
                 'img': img,
                 'label': self.label,
             }
+
+
+# class WSILMDBPatch:
+#     def __init__(self, json_path, direction, patch_label_dir, env=None):
+
+#         """at_mag: extract patches at magnification xxx"""
+
+#         self.env = env
+
+#         with open(json_path) as f:
+#             json_data = f.read()
+
+#         parsed_json = json.loads(json_data)
+#         self.label = parsed_json['label']
+#         self.coords = parsed_json['coords']
+#         self.num_patches = len(self.coords[0])
+
+#         assert direction in [0, 1, 2, 3, 4, 5, 6, 7, -1]
+#         self.direction = direction
+#         self.json_patch = json_path
+
+
+#     # def shuffle(self):
+#         #  self.coords
+
+#     def get_patch_label(self, json_path):
+#         json_path
+
+#     def __iter__(self):
+
+
+#         if self.direction == -1:
+#             coords = random.choice(self.coords)
+#         else:
+#             coords = self.coords[self.direction]
+
+#         for coord in coords:
+#             # with env.open()
+#             # self.env = lmdb.open(db_path, readonly=True)
+#             basename = os.path.basename(self.json_patch).replace('json', 'tif')
+#             (x, y), level, (patch_size_x, patch_size_y) = coord
+#                 # print(x, y, level, patch_size_x, patch_size_y)
+#             patch_id = '{basename}_{x}_{y}_{level}_{patch_size_x}_{patch_size_y}'.format(
+#                 basename=basename,
+#                 x=x,
+#                 y=y,
+#                 level=level,
+#                 patch_size_x=patch_size_x,
+#                 patch_size_y=patch_size_y)
+
+#             with self.env.begin() as txn:
+#                 img_stream = txn.get(patch_id.encode())
+#                 img = Image.open(io.BytesIO(img_stream))
+
+
+
+#             yield {
+#                 #'img': self.wsi.read_region(
+#                 #    *coord
+#                 #).convert('RGB'),
+#                 'img': img,
+#                 'label': self.label,
+#             }

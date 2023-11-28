@@ -1047,7 +1047,12 @@
 # cv2.imwrite('test_512_patch.jpg', img)
 def build_model(model_name, num_classes):
     # model_name =
-    if model_name == 'mynet_A':
+    if model_name == 'mynet_A_s':
         from .my_net import MyNet
         net = MyNet(n_classes=num_classes, n_dim=384, interval=100, dis_mem_len=64)
+        return net
+
+    if model_name == 'mynet_A_b':
+        from .my_net import MyNet
+        net = MyNet(n_classes=num_classes, n_dim=384 * 2, interval=100, dis_mem_len=64)
         return net

@@ -48,12 +48,13 @@ def get_args_parser():
     parser.add_argument('--batch_size', default=64, type=int,
                          help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     # parser.add_argument('--num_gpus', default=1, type=int)
-    parser.add_argument('--model', default='mynet_A', type=str, help='name of the model')
+    parser.add_argument('--model', default='mynet_A_s', type=str, help='name of the model')
     parser.add_argument('--dataset', default='cam16')
     parser.add_argument('--num_gpus', default=1)
     parser.add_argument('--local_rank', default=1)
     parser.add_argument('--epoch', default=100)
     parser.add_argument('--ckpt_path', default='checkpoint', type=str)
+    parser.add_argument('--ddp', default='ddp training', type=str)
     # parser.add_argument('--epochs', default=400, type=int)
     # parser.add_argument('--num_gpus', default=1, type=int)
     # parser.add_argument('--accum_iter', default=1, type=int,
@@ -130,15 +131,24 @@ def main(args):
     # if args.num_gpus ==1:
 
     # print(args)
+    if args.ddp:
+            mics.init_process()
+
     root_path = os.path.dirname(os.path.abspath(__file__))
     ckpt_path = os.path.join(
         root_path, args.ckpt_path, TIME_NOW)
     # log_dir = os.path.join(root_path, settings.LOG_FOLDER, args.prefix + '_' +settings.TIME_NOW)
 
     # if dist.get_rank() == 0:
-    if not os.path.exists(ckpt_path):
-            print(ckpt_path)
-            os.makedirs(ckpt_path)
+    if args.ddp:
+        if dist.get_rank() == 0:
+            if not os.path.exists(ckpt_path):
+                    print(ckpt_path)
+                    os.makedirs(ckpt_path)
+    else:
+        if not os.path.exists(ckpt_path):
+                print(ckpt_path)
+                os.makedirs(ckpt_path)
 
     # train_dataloader = aa.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=16, num_workers=4)
     # print(dist.get_world_size())
@@ -156,12 +166,21 @@ def main(args):
     # train_dataloader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, num_workers=4, shuffle=True, sampler=sampler)
     train_dataloader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, num_workers=4, shuffle=True)
 
+    if args.ddp:
+        sampler = torch.utils.data.distributed.DistributedSampler(train_set)
+        train_dataloader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, num_workers=4, sampler=sampler)
+
+
+
 
     val_trans = build_transforms('val')
     val_set = CAM16(trans=val_trans, image_set='val')
     # sampler = DistributedSampler(val_set, num_replicas=dist.get_world_size(), rank=dist.get_rank(), shuffle=True, drop_last=True)
     # val_dataloader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, num_workers=4, shuffle=True, sampler=sampler)
     val_dataloader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, num_workers=4, shuffle=True)
+
+    print(len(train_set), len(val_set))
+    # import sys; sys.exit()
 
 
 
@@ -201,91 +220,115 @@ def main(args):
     # loss_fn = torch.nn.CrossEntropyLoss()
     # import sys; sys.exit()
     # for i in range(10000):
+    # total_iter = int
     for i in range(args.epoch):
+
+        training_time = time.time()
         t1 = time.time()
-        count = 0
-        #for iter, data in enumerate(train_dataloader):
-        #     # break
-        #    #  print(count)
-        #    #print(data)
-        #    #img = data['img'].to(dist.get_rank())
-        #    #label = data['label'].to(dist.get_rank())
-        #    # print(data)
-        #    img = data['img'].cuda()
-        #    label = data['label'].cuda()
-        #    # img = torch.randn((126, 3, 256, 256)).to(dist.get_rank())
-        #    # img = torch.randn((16, 3, 256, 256)).to(dist.get_rank())
-        #    # img = torch.randn((32, 3, 256, 256)).to(dist.get_rank())
-        #    # img = torch.randn((32, 3, 256, 256))
-        #    # img = torch.randn()
-        #    # print(img.shape)
-        #    # print(dist.get_rank(), img.device, net.module.vit.norm.weight.device)
+        # count = 0
+        # print(dist.get_rank())
+        # continue
+        for iter_idx, data in enumerate(train_dataloader):
 
-        #    # for n, p in net.named_parameters():
-        #    #     print('{} {} {} {}'.format(n, p.data.device, dist.get_rank(), img.device))
-        #    # out = net.vit(img, device=img.device)
-        #    # for name, param in net.module.named_parameters():
-        #    #     if param.grad is None:
-        #    #         print(name)
-        #    # print(type(net), net.parameters())
-        #    # print(data['is_last'])
-        #    # is_last = data['is_last'].to(dist.get_rank())
-        #    print(img.dtype)
-        #    out = net(img)
-        #    # continue
-        #    # print(out.shape)
-        #    # print(out.shape)
+            # break
+             # break
+            #  print(count)
+            #print(data)
+            #img = data['img'].to(dist.get_rank())
+            #label = data['label'].to(dist.get_rank())
+            # print(data)
+            # img = torch.randn((126, 3, 256, 256)).to(dist.get_rank())
+            # img = torch.randn((16, 3, 256, 256)).to(dist.get_rank())
+            # img = torch.randn((32, 3, 256, 256)).to(dist.get_rank())
+            # img = torch.randn((32, 3, 256, 256))
+            # img = torch.randn()
+            # print(img.shape)
+            # print(dist.get_rank(), img.device, net.module.vit.norm.weight.device)
 
-        #    loss = loss_fn(out, label)
-        #    loss.backward()
-        #    # print(loss.item())
-        #    optimizer.step()
-        #    optimizer.zero_grad()
+            # for n, p in net.named_parameters():
+            #     print('{} {} {} {}'.format(n, p.data.device, dist.get_rank(), img.device))
+            # out = net.vit(img, device=img.device)
+            # for name, param in net.module.named_parameters():
+            #     if param.grad is None:
+            #         print(name)
+            # print(type(net), net.parameters())
+            # print(data['is_last'])
+            # is_last = data['is_last'].to(dist.get_rank())
+            # print(img.dtype)
 
-        #    # if dist.get_rank() == 0:
-        #    t2 = time.time()
-        #    count += img.shape[0] * 2
-        #    print('epoch {}, iter {}, loss is {}, avg time {:02f}'.format(i, iter, loss, (t2 - t1) / count))
+            img = data['img'].cuda()
+            label = data['label'].cuda()
 
-        #    # for name, param in net.named_parameters():
-        #    #     if param.grad is None:
-        #    #         print(name)
-        #    # out.mean().backward()
-        #    # print(out.shape)
-        #    # t2 = time.time()
-        #    # print((t2 - t1) / (data['img'].shape[0] * count))
-        #    # print((t2 - t1) / (64 * count))
+            # img = data['img'].cuda()
+            # label = data['label'].cuda()
+            # out = net(img)
+            # loss = loss_fn(out, label)
+            # loss.backward()
+            # optimizer.step()
+            # optimizer.zero_grad()
+
+            # if dist.get_rank() == 0:
+            t2 = time.time()
+            # count += img.shape[0] * 2
+            loss = 1
+            print('epoch {epoch}, [{trained}/{total}], loss is {loss}, avg time {avg}, rank {rank}'.format(
+                 epoch=i,
+                #  iter_idx,
+                trained=(iter_idx + 1) * img.shape[0],
+                total=len(train_dataloader.dataset),
+                loss=loss,
+                avg=(t2 - t1) / (iter_idx + 1),
+                rank=dist.get_rank())
+                )
+
+            # for name, param in net.named_parameters():
+            #     if param.grad is None:
+            #         print(name)
+            # out.mean().backward()
+            # print(out.shape)
+            # t2 = time.time()
+            # print((t2 - t1) / (data['img'].shape[0] * count))
+            # print((t2 - t1) / (64 * count))
+
+            # if iter_idx > 50:
+                #  break
 
 
     # start eval:
         # if dist.get_rank() == 0:
+        print('training one epoch time: {:02f} min'.format((time.time() - training_time) / 60))
+
+        import sys; sys.exit()
         with torch.no_grad():
                 #patch_metric = torchmetrics.classification.Accuracy(task="multiclass", num_classes=2).to(dist.get_rank())
                 #img_metric = torchmetrics.classification.Accuracy(task="multiclass", num_classes=2).to(dist.get_rank())
                 # patch_metric = torchmetrics.classification.Accuracy(task="multiclass", num_classes=2).cuda()
                 #overall_metric = torchmetrics.classification.Accuracy(task="multiclass", num_classes=2).cuda()
                 #class_metric = torchmetrics.wrappers.ClasswiseWrapper(torchmetrics.classification.Accuracy(task="multiclass", num_classes=2)).cuda()
-                acc_metric = torchmetrics.MetricCollection(
-                    {
-                        "overall":torchmetrics.classification.Accuracy(task="multiclass", num_classes=2).cuda(),
-                        "class-wise":torchmetrics.wrappers.ClasswiseWrapper(torchmetrics.classification.Accuracy(task="multiclass", num_classes=2, average=None), labels=['bg', 'cancer']).cuda()
-                    }
+                # acc_metric = torchmetrics.MetricCollection(
+                #     {
+                #         "overall":torchmetrics.classification.Accuracy(task="multiclass", num_classes=2).cuda(),
+                #         "class-wise":torchmetrics.wrappers.ClasswiseWrapper(torchmetrics.classification.Accuracy(task="multiclass", num_classes=2, average=None), labels=['bg', 'cancer']).cuda()
+                #     }
 
-                )
+                # )
+                        # "class-wise":torchmetrics.wrappers.ClasswiseWrapper(torchmetrics.classification.Accuracy(task="multiclass", num_classes=2, average=None), labels=['bg', 'cancer']).cuda()
                 # img_metric = torchmetrics.classification.Accuracy(task="multiclass", num_classes=2).cuda()
                 # print(val_dataloader.shuffle)
                 # import sys; sys.exit()
+                acc_metric = torchmetrics.classification.Accuracy(task="multiclass", num_classes=2, average=None).cuda()
                 print('evaluating.....')
                 # res = torch.zeros((1, 121, 2)).cuda()
                 # img_res = torch.zeros((121, 2)).cuda()
                 # img_gt = torch.zeros((121)).cuda()
 
                 count = 1
+                eval_time = time.time()
                 for data in val_dataloader:
                     # break
                     #img = data['img'].to(dist.get_rank())
                     #label = data['label'].to(dist.get_rank())
-                    count += 1
+                    # count += 1
                     img = data['img'].cuda()
                     label = data['label'].cuda()
                     # img = torch.randn((126, 3, 256, 256)).to(dist.get_rank())
@@ -316,10 +359,14 @@ def main(args):
                     pred = out.softmax(dim=1)
                     # class_metric.update(pred, label)
                     # overall_metric.update(pred, label)
+                    # print(pred.shape, label.shape)
                     acc_metric.update(pred, label)
+                    # print('time:')
 
-                    if count > 100:
-                          break
+                    print((time.time() - eval_time) / count)
+                    count += 1
+                    # if count > 50:
+                        # break
 
                     # class_id = pred.max(dim=1)[1]
 
@@ -335,20 +382,26 @@ def main(args):
                     # patch_metric.
 
         acc = acc_metric.compute()
+        # print(acc)
+        mean_acc = acc.mean()
+        print("eval time {:02f}, acc_bg {}  acc_cancer {}, mean {}".format(time.time() - eval_time, acc[0], acc[1], mean_acc))
         # img_acc = (img_res.max(dim=1)[0] == img_gt).sum() / img_gt.shape[0]
 
         # if dist.get_rank() == 0:
             # acc = 0.03
         # print(f"Accuracy on patch level: {acc}", acc)
         # print(f"Accuracy on image level: {img_acc}")
-        print(acc)
-        print(acc['overall'])
+        # print(acc)
+        # print(acc['overall'])
 
         # if acc > best_acc:
-        if acc['overall'] > best_acc:
+        # mean_acc = acc.mean()
+        # if acc['overall'] > best_acc:
+        if mean_acc > best_acc:
         #    # save checkpoints
-            # if i > 10:
-                best_acc = acc['overall']
+            if i > 10:
+                # best_acc = acc['overall']
+                best_acc = mean_acc
                 basename = '{}_{}.pt'.format(i, best_acc)
                 save_path = os.path.join(ckpt_path, basename)
                 torch.save(net.state_dict(), os.path.join(ckpt_path, basename))
@@ -474,6 +527,8 @@ if __name__ == '__main__':
     args = args.parse_args()
     # if args.output_dir:
         # Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+
+    print(args)
     main(args)
 
     # dataloader = dataset.utils.build_dataloader('cam16', 'train', False, batch_size=16, num_workers=4)

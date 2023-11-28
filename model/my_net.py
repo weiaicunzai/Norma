@@ -31,7 +31,7 @@ import torch.nn as nn
 
 # print(test)
 
-from .vit import vit_small
+from .vit import vit_small, vit_base
 from .mil_head import AttentionHead
 
 
@@ -43,8 +43,16 @@ class MyNet(nn.Module):
         self.n_dim = n_dim
         self.interval = interval
         self.dis_mem_len = dis_mem_len
-        self.vit = vit_small()
-        self.head = AttentionHead(n_dim=n_dim, interval=interval, dis_mem_len=dis_mem_len)
+
+        if n_dim == 384:
+            self.vit = vit_small()
+        # self.vit = vit_base()
+        else:
+            self.vit = vit_base()
+
+        # print(sum([p.numel() for p in self.vit.parameters()]))
+        # import sys; sys.exit()
+        # self.head = AttentionHead(n_dim=n_dim, interval=interval, dis_mem_len=dis_mem_len)
         self.fc = nn.Linear(n_dim, n_classes)
 
     def forward(self, x, is_last=None):
@@ -59,3 +67,4 @@ class MyNet(nn.Module):
             # self.head.reset()
 
         return logits
+        # return x

@@ -45,3 +45,7 @@ profiling
 profiling1
 std_mean
 train_vit_only
+tmp_res
+train_vit_base_patch_level
+train_vit_small_patch_level
+test_get_rank

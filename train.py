@@ -121,7 +121,7 @@ def get_args_parser():
 
 
 def main(args):
-    mics.init_process()
+    # mics.init_process()
     # misc.init_distributed_mode(args)
     # if args.num_gpus > 1:
     # if args.num_gpus ==1:
@@ -132,26 +132,29 @@ def main(args):
         root_path, args.ckpt_path, TIME_NOW)
     # log_dir = os.path.join(root_path, settings.LOG_FOLDER, args.prefix + '_' +settings.TIME_NOW)
 
-    if dist.get_rank() == 0:
-        if not os.path.exists(ckpt_path):
-            print(ckpt_path)
-            os.makedirs(ckpt_path)
+    # if dist.get_rank() == 0:
+    if not os.path.exists(ckpt_path):
+        print(ckpt_path)
+        os.makedirs(ckpt_path)
 
     # train_dataloader = aa.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=16, num_workers=4)
-    print(dist.get_world_size())
-    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=args.batch_size, num_workers=4, num_gpus=dist.get_world_size())
-    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
+    # print(dist.get_world_size())
+    # train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=args.batch_size, num_workers=4, num_gpus=dist.get_world_size())
+    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=False, batch_size=args.batch_size, num_workers=4)
+    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4)
+    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=16, num_workers=4)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = train_dataloader
     num_classes = dataset.utils.get_num_classes(args.dataset)
     # model.vit
     # print(dir(model))
-    net = model.utils.build_model(args.model, num_classes).to(dist.get_rank())
+    # net = model.utils.build_model(args.model, num_classes).to(dist.get_rank())
+    net = model.utils.build_model(args.model, num_classes).cuda()
     # net = net.to(dist.get_rank())
     # net = vit_base().to(dist.get_rank())
     # dpp_net =
-    net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[dist.get_rank()])
+    # net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[dist.get_rank()])
     # net = torch.nn.parallel.DistributedDataParallel(net)
     # print(net)
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
@@ -178,8 +181,11 @@ def main(args):
              # break
             #  print(count)
             #print(data)
-            img = data['img'].to(dist.get_rank())
-            label = data['label'].to(dist.get_rank())
+            #img = data['img'].to(dist.get_rank())
+            #label = data['label'].to(dist.get_rank())
+            img = data['img'].cuda()
+            label = data['label'].cuda()
+            print(img.shape)
             # img = torch.randn((126, 3, 256, 256)).to(dist.get_rank())
             # img = torch.randn((16, 3, 256, 256)).to(dist.get_rank())
             # img = torch.randn((32, 3, 256, 256)).to(dist.get_rank())
@@ -196,7 +202,8 @@ def main(args):
             #         print(name)
             # print(type(net), net.parameters())
             # print(data['is_last'])
-            is_last = data['is_last'].to(dist.get_rank())
+            # is_last = data['is_last'].to(dist.get_rank())
+            is_last = data['is_last'].cuda()
             out = net(img, is_last)
             # continue
             # print(out.shape)
@@ -263,18 +270,18 @@ def main(args):
 
         acc = metric.compute()
 
-        if dist.get_rank() == 0:
+        # if dist.get_rank() == 0:
             # acc = 0.03
-            print(f"Accuracy on all data: {acc}")
+        print(f"Accuracy on all data: {acc}")
 
-            if acc > best_acc:
-            #    # save checkpoints
-                if i > 10:
-                    best_acc = acc
-                    basename = '{}_{}.pt'.format(i, best_acc)
-                    save_path = os.path.join(ckpt_path, basename)
-                    torch.save(net.state_dict(), os.path.join(ckpt_path, basename))
-                    print('saving best checkpoint to {}'.format(save_path))
+        if acc > best_acc:
+        #    # save checkpoints
+            if i > 10:
+                best_acc = acc
+                basename = '{}_{}.pt'.format(i, best_acc)
+                save_path = os.path.join(ckpt_path, basename)
+                torch.save(net.state_dict(), os.path.join(ckpt_path, basename))
+                print('saving best checkpoint to {}'.format(save_path))
 
 
 

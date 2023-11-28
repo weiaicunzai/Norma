@@ -7,7 +7,8 @@ if __name__ == "__main__":
     # img = cv2.imread('image.jpg')
     img = cv2.imread('/data/hdd1/by/tmp_folder/lmdb_files/Ldbm_task/cat.jpeg')
     # img = cv2.resize(img, (768, 1280))
-    img = cv2.resize(img, (512, 512))
+    # img = cv2.resize(img, (512, 512))
+    img = cv2.resize(img, (256, 256))
     _, imgbuf = cv2.imencode('.jpg', img)
     n_try = 500
 

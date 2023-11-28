@@ -36,6 +36,7 @@ from conf import camlon16
 def camlon16_wsis(data_set, direction=-1):
     if data_set == 'train':
         dirs = camlon16.train_dirs
+        # patch_dir = camlon16.train_dirs
     else:
         dirs = camlon16.test_dirs
 
@@ -71,6 +72,7 @@ def camlon16_wsis(data_set, direction=-1):
                 # wsi_path,
                 # mask_path(wsi_path),
                 json_path,
+                patch_json_dir=dirs['patch_level'][0],
                 env=env,
                 # patch_size=512,
                 # at_mag=5,

@@ -14,6 +14,7 @@ from conf.camlon16 import settings
 from dataset.wsi import WSI
 from dataset.dataloader import WSIDataLoader
 from dataset.wsi_reader import camlon16_wsis
+from dataset.utils import A_trans
 
 
 # mask_path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_mask/'
@@ -54,24 +55,24 @@ def test_camlon16():
     # wsis = []
     # for idx, wsi_path in enumerate(glob.iglob(os.path.join(wis_img_dir, '**', '*.tif'), recursive=True)):
 
-    img_size = (256, 256)
+    # img_size = (256, 256)
 
-    trans = transforms.Compose([
-            transforms.RandomRotation(30),
-            transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
-            # transforms.RandomCrop(img_size),
-            transforms.RandomApply(
-                transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
-                # p=0.3
-                p=0.3
-            ),
-            transforms.RandomGrayscale(p=0.1),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomVerticalFlip(p=0.5),
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    ])
-    count = 0
+    # trans = transforms.Compose([
+    #         transforms.RandomRotation(30),
+    #         transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
+    #         # transforms.RandomCrop(img_size),
+    #         transforms.RandomApply(
+    #             transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
+    #             # p=0.3
+    #             p=0.3
+    #         ),
+    #         transforms.RandomGrayscale(p=0.1),
+    #         transforms.RandomHorizontalFlip(p=0.5),
+    #         transforms.RandomVerticalFlip(p=0.5),
+    #         transforms.ToTensor(),
+    #         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+    # ])
+    # count = 0
     # for filenames in settings.get_filenames('train'):
     #     count += 1
 
@@ -102,10 +103,12 @@ def test_camlon16():
     # import sys; sys.exit()
     # print(len(wsis))
     # for wsi in
-    wsis = camlon16_wsis('train')[:40]
+    trans = A_trans('train')
+    # wsis = camlon16_wsis('train')[:16 * 2]
+    wsis = camlon16_wsis('train')[:16 * 10]
     dataset = WSIDataset(
         wsis=wsis,
-        batch_size=4,
+        batch_size=16,
         transforms=trans
         )
 
@@ -117,15 +120,25 @@ def test_camlon16():
     import time
     start = time.time()
     count = 0
+
+
+    from viztracer import VizTracer
+    tracer = VizTracer()
+    tracer.start()
     for i in dataset:
         #  print(i)
-        i[0]['img'].save('tmp1/{}.jpg'.format(count))
+        # i[0]['img'].save('tmp1/{}.jpg'.format(count))
         count += 1
         if count > 100:
             break
 
     end = time.time()
     print((end - start) / count)
+
+    tracer.stop()
+    # tracer.save('results_16_times_2.json')
+    tracer.save('results_16_times_10.json')
+
 
 path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training'
 # mask_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_mask/'

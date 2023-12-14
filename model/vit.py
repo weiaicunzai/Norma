@@ -181,7 +181,7 @@ class VisionTransformer(nn.Module):
     """ Vision Transformer """
     def __init__(self, img_size=[224], patch_size=16, in_chans=3, num_classes=0, embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
-                 drop_path_rate=0., norm_layer=nn.LayerNorm, **kwargs):
+                 drop_path_rate=0., norm_layer=nn.LayerNorm,  **kwargs):
         super().__init__()
         self.num_features = self.embed_dim = embed_dim
 
@@ -207,6 +207,12 @@ class VisionTransformer(nn.Module):
         trunc_normal_(self.pos_embed, std=.02)
         trunc_normal_(self.cls_token, std=.02)
         self.apply(self._init_weights)
+        # self.return_cls = kwargs.get('return_cls', False)
+
+        # if self.return_cls:
+            # self.fc = nn.Linear(embed_dim, 2)
+        # print(kwargs, self.return_cls)
+        # import sys; sys.exit()
 
 
     def attn_score(self, seq):
@@ -278,8 +284,14 @@ class VisionTransformer(nn.Module):
             # x =
         x = self.norm(x)
 
-        return x[:, 0]
-        # return x
+        # print(x.shape, 'ccccccc')
+        x = self.head(x)
+
+        return x
+        # if self.return_cls:
+        #     return self.fc(x[:, 0])
+        # else:
+        #     return x
 
     def get_last_selfattention(self, x):
         x = self.prepare_tokens(x)
@@ -309,6 +321,7 @@ def vit_tiny(patch_size=16, **kwargs):
 
 
 def vit_small(patch_size=16, **kwargs):
+    # print(kwargs)
     model = VisionTransformer(
         patch_size=patch_size, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4,
         qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)

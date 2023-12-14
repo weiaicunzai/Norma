@@ -45,7 +45,7 @@ def get_args_parser():
     parser.add_argument('--batch_size', default=64, type=int,
                          help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     # parser.add_argument('--num_gpus', default=1, type=int)
-    parser.add_argument('--model', default='mynet_A', type=str, help='name of the model')
+    parser.add_argument('--model', default='mynet_A_s', type=str, help='name of the model')
     parser.add_argument('--dataset', default='cam16')
     parser.add_argument('--num_gpus', default=1)
     parser.add_argument('--local_rank', default=1)
@@ -151,6 +151,8 @@ def main(args):
     # print(dir(model))
     # net = model.utils.build_model(args.model, num_classes).to(dist.get_rank())
     net = model.utils.build_model(args.model, num_classes).cuda()
+
+    print(net)
     # net = net.to(dist.get_rank())
     # net = vit_base().to(dist.get_rank())
     # dpp_net =
@@ -174,18 +176,31 @@ def main(args):
     # loss_fn = torch.nn.CrossEntropyLoss()
     # import sys; sys.exit()
     # for i in range(10000):
+
+    # from torch.profiler import profile, record_function, ProfilerActivity
+    # with profile(activities=[ProfilerActivity.CUDA], profile_memory=True, record_shapes=True) as prof:
+    # with torch.profiler.profile(
+    #     schedule=torch.profiler.schedule(wait=1, warmup=4, active=3, repeat=1),
+    #     on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/test_mynet'),
+    #     record_shapes=True,
+    #     profile_memory=True,
+    #     with_stack=True
+    # ) as prof:
+
+    mem = None
     for i in range(args.epoch):
         t1 = time.time()
         count = 0
-        for iter, data in enumerate(train_dataloader):
+        # net.reset()
+        for iter_idx, data in enumerate(train_dataloader):
              # break
             #  print(count)
             #print(data)
             #img = data['img'].to(dist.get_rank())
             #label = data['label'].to(dist.get_rank())
-            img = data['img'].cuda()
-            label = data['label'].cuda()
-            print(img.shape)
+            img = data['img'].cuda(non_blocking=True)
+            label = data['label'].cuda(non_blocking=True)
+            # print(img.shape)
             # img = torch.randn((126, 3, 256, 256)).to(dist.get_rank())
             # img = torch.randn((16, 3, 256, 256)).to(dist.get_rank())
             # img = torch.randn((32, 3, 256, 256)).to(dist.get_rank())
@@ -203,8 +218,10 @@ def main(args):
             # print(type(net), net.parameters())
             # print(data['is_last'])
             # is_last = data['is_last'].to(dist.get_rank())
-            is_last = data['is_last'].cuda()
-            out = net(img, is_last)
+            # if iter_idx == 180:
+            #     break
+            is_last = data['is_last'].cuda(non_blocking=True)
+            out, mem = net(img, mem, is_last)
             # continue
             # print(out.shape)
 
@@ -214,10 +231,10 @@ def main(args):
             optimizer.step()
             optimizer.zero_grad()
 
-            if dist.get_rank() == 0:
-                t2 = time.time()
-                count += img.shape[0] * 2
-                print('epoch {}, iter {}, loss is {}, avg time {:02f}'.format(i, iter, loss, (t2 - t1) / count))
+            # if dist.get_rank() == 0:
+            t2 = time.time()
+            # count += img.shape[0] * 2
+            print('epoch {}, iter {}, loss is {:03f}, avg time {:02f}'.format(i, iter_idx, loss, (t2 - t1) / (iter_idx + 1e-8)))
 
             # for name, param in net.named_parameters():
             #     if param.grad is None:
@@ -228,18 +245,33 @@ def main(args):
             # print((t2 - t1) / (data['img'].shape[0] * count))
             # print((t2 - t1) / (64 * count))
 
+            # if iter_idx > 50:
+            #     break
+            # prof.step()
+        # break
+
+    # print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
+
+    # import sys; sys.exit()
+
 
     # start eval:
         # if dist.get_rank() == 0:
         with torch.no_grad():
-                metric = torchmetrics.classification.Accuracy(task="multiclass", num_classes=2).to(dist.get_rank())
+                # metric = torchmetrics.classification.Accuracy(task="multiclass", num_classes=2).to(dist.get_rank())
+                metric = torchmetrics.classification.Accuracy(task="multiclass", num_classes=2, average=None).cuda()
                 # print(val_dataloader.shuffle)
                 # import sys; sys.exit()
+                count = 0
                 print('evaluating.....')
+                # net.reset()
+                mem = None
                 for data in val_dataloader:
                     # break
-                    img = data['img'].to(dist.get_rank())
-                    label = data['label'].to(dist.get_rank())
+                    #img = data['img'].to(dist.get_rank())
+                    #label = data['label'].to(dist.get_rank())
+                    img = data['img'].cuda(non_blocking=True)
+                    label = data['label'].cuda(non_blocking=True)
                     # img = torch.randn((126, 3, 256, 256)).to(dist.get_rank())
                     # img = torch.randn((16, 3, 256, 256)).to(dist.get_rank())
                     # img = torch.randn((32, 3, 256, 256)).to(dist.get_rank())
@@ -256,10 +288,11 @@ def main(args):
                     #         print(name)
                     # print(type(net), net.parameters())
                     # print(data['is_last'])
-                    is_last = data['is_last'].to(dist.get_rank())
+                    # is_last = data['is_last'].to(dist.get_rank())
+                    is_last = data['is_last'].cuda(non_blocking=True)
 
 
-                    out = net(img, is_last)
+                    out, mem = net(img, mem, is_last)
 
                     if is_last.sum() > 0:
                         # print('ccccccccccccccc')
@@ -268,16 +301,22 @@ def main(args):
                         print('update result')
                         metric.update(pred, label)
 
+                    # count += 1
+                    # if count > 50:
+                    #     break
+
         acc = metric.compute()
 
         # if dist.get_rank() == 0:
             # acc = 0.03
         print(f"Accuracy on all data: {acc}")
 
-        if acc > best_acc:
+        acc_mean = acc.mean()
+        # if acc > best_acc:
+        if acc_mean > best_acc:
         #    # save checkpoints
             if i > 10:
-                best_acc = acc
+                best_acc = acc_mean
                 basename = '{}_{}.pt'.format(i, best_acc)
                 save_path = os.path.join(ckpt_path, basename)
                 torch.save(net.state_dict(), os.path.join(ckpt_path, basename))

@@ -496,78 +496,78 @@ def build_transforms(img_set):
     img_size=(256, 256)
     if img_set == 'train':
 
-        trans = transforms.Compose([
-                # transforms.RandomRotation(30),
-                transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
-                # transforms.RandomApply(
-                #     transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
-                #     p=0.5
-                # ),
+        #trans = transforms.Compose([
+        #        # transforms.RandomRotation(30),
+        #        transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
+        #        # transforms.RandomApply(
+        #        #     transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
+        #        #     p=0.5
+        #        # ),
 
 
-                transforms.RandomChoice
-                    (
-                        [
-                            # nothing:
-                            transforms.Compose([]),
+        #        transforms.RandomChoice
+        #            (
+        #                [
+        #                    # nothing:
+        #                    transforms.Compose([]),
 
-                            # h:
-                            transforms.RandomHorizontalFlip(p=1),
+        #                    # h:
+        #                    transforms.RandomHorizontalFlip(p=1),
 
-                            # v:
-                            transforms.RandomVerticalFlip(p=1),
+        #                    # v:
+        #                    transforms.RandomVerticalFlip(p=1),
 
-                            # hv:
-                            transforms.Compose([
-                                   transforms.RandomVerticalFlip(p=1),
-                                   transforms.RandomHorizontalFlip(p=1),
-                            ]),
+        #                    # hv:
+        #                    transforms.Compose([
+        #                           transforms.RandomVerticalFlip(p=1),
+        #                           transforms.RandomHorizontalFlip(p=1),
+        #                    ]),
 
-                             #r90:
-                            # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-                            # transforms.MyRotate90(degrees=(90, 90), expand=True, p=1),
-                            # transforms.MyRotate90(p=1),
-                            transforms.RandomRotation(degrees=(90, 90)),
+        #                     #r90:
+        #                    # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+        #                    # transforms.MyRotate90(degrees=(90, 90), expand=True, p=1),
+        #                    # transforms.MyRotate90(p=1),
+        #                    transforms.RandomRotation(degrees=(90, 90)),
 
-                            # #r90h:
-                            transforms.Compose([
-                                # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-                                # transforms.MyRotate90(p=1),
-                                transforms.RandomRotation(degrees=(90, 90)),
-                                transforms.RandomHorizontalFlip(p=1),
-                            ]),
+        #                    # #r90h:
+        #                    transforms.Compose([
+        #                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+        #                        # transforms.MyRotate90(p=1),
+        #                        transforms.RandomRotation(degrees=(90, 90)),
+        #                        transforms.RandomHorizontalFlip(p=1),
+        #                    ]),
 
-                            # #r90v:
-                            transforms.Compose([
-                                # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-                                # transforms.MyRotate90(p=1),
-                                transforms.RandomRotation(degrees=(90, 90)),
-                                transforms.RandomVerticalFlip(p=1),
-                            ]),
+        #                    # #r90v:
+        #                    transforms.Compose([
+        #                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+        #                        # transforms.MyRotate90(p=1),
+        #                        transforms.RandomRotation(degrees=(90, 90)),
+        #                        transforms.RandomVerticalFlip(p=1),
+        #                    ]),
 
-                            # #r90hv:
-                            transforms.Compose([
-                                # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-                                # transforms.MyRotate90(p=1),
-                                transforms.RandomRotation(degrees=(90, 90)),
-                                transforms.RandomHorizontalFlip(p=1),
-                                transforms.RandomVerticalFlip(p=1),
-                            ]),
-                        ]
-                    ),
+        #                    # #r90hv:
+        #                    transforms.Compose([
+        #                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
+        #                        # transforms.MyRotate90(p=1),
+        #                        transforms.RandomRotation(degrees=(90, 90)),
+        #                        transforms.RandomHorizontalFlip(p=1),
+        #                        transforms.RandomVerticalFlip(p=1),
+        #                    ]),
+        #                ]
+        #            ),
 
-                transforms.RandAugment(num_ops=2, magnitude=9, num_magnitude_bins=10),
-                # transforms.RandomCrop(img_size),
-                #transforms.RandomApply(
-                #    transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
-                #    p=0.3
-                #),
-                #transforms.RandomGrayscale(p=0.1),
-                # transforms.RandomHorizontalFlip(p=0.5),
-                # transforms.RandomVerticalFlip(p=0.5),
-                transforms.ToTensor(),
-                transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-        ])
+        #        transforms.RandAugment(num_ops=2, magnitude=9, num_magnitude_bins=10),
+        #        # transforms.RandomCrop(img_size),
+        #        #transforms.RandomApply(
+        #        #    transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
+        #        #    p=0.3
+        #        #),
+        #        #transforms.RandomGrayscale(p=0.1),
+        #        # transforms.RandomHorizontalFlip(p=0.5),
+        #        # transforms.RandomVerticalFlip(p=0.5),
+        #        transforms.ToTensor(),
+        #        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        #])
 
 
         trans = A_trans(img_set=img_set)
@@ -589,21 +589,21 @@ def build_transforms(img_set):
 
 
     elif img_set in ['val', 'test']:
-        trans = transforms.Compose([
-            # transforms.RandomRotation(30),
-            # transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
-            # # transforms.RandomCrop(img_size),
-            # transforms.RandomApply(
-            #     transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
-            #     p=0.3
-            # ),
-            # transforms.RandomGrayscale(p=0.1),
-            # transforms.RandomHorizontalFlip(p=0.5),
-            # transforms.RandomVerticalFlip(p=0.5),
-            transforms.Resize(img_size),
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-        ])
+        #trans = transforms.Compose([
+        #    # transforms.RandomRotation(30),
+        #    # transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
+        #    # # transforms.RandomCrop(img_size),
+        #    # transforms.RandomApply(
+        #    #     transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
+        #    #     p=0.3
+        #    # ),
+        #    # transforms.RandomGrayscale(p=0.1),
+        #    # transforms.RandomHorizontalFlip(p=0.5),
+        #    # transforms.RandomVerticalFlip(p=0.5),
+        #    transforms.Resize(img_size),
+        #    transforms.ToTensor(),
+        #    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        #])
         trans = A_trans(img_set)
 
     else:
@@ -652,16 +652,16 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_g
 
         # if num_gpus > 1:
         #     torch
-
+    if img_set == 'train':
+        shuffle = True
+        lmdb_path = settings.train_dirs['lmdb'][0]
+        allow_repeat = True
+    else:
+        shuffle = False
+        lmdb_path = settings.test_dirs['lmdb'][0]
+        allow_repeat = False
 
     if dist:
-        if img_set == 'train':
-            shuffle = True
-            lmdb_path = settings.train_dirs['lmdb'][0]
-        else:
-            shuffle = False
-            lmdb_path = settings.test_dirs['lmdb'][0]
-
         dataloader = DistWSIDataLoader(
             lmdb_path=lmdb_path,
             wsis=wsis,
@@ -671,19 +671,19 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_g
             cls_type=dataset_cls,
             num_workers=num_workers,
             transforms=trans,
-            shuffle=shuffle
+            shuffle=shuffle,
         )
 
     else:
         dataloader = WSIDataLoader(
             wsis,
-            # batch_size=17,
+            shuffle=shuffle,
             batch_size=batch_size,
-            # num_gpus=3,
             cls_type=WSIDataset,
-            # num_workers=4,
+            pin_memory=True,
             num_workers=num_workers,
             transforms=trans,
+            allow_repeat=allow_repeat,
             drop_last=True,
         )
 

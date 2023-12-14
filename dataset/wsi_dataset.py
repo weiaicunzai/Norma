@@ -9,6 +9,8 @@ import cv2
 
 from PIL import Image
 
+import time
+
 
 class WSIDataset(IterableDataset):
     # def __init__(self, wsi_img_dir, wsi_mask_dir, patch_size=256, at_mag=20, random_rotate=False):
@@ -46,10 +48,18 @@ class WSIDataset(IterableDataset):
     def cal_seq_len(self):
     # def global_seq_len(self):
         outputs = []
-        for wsi in self.wsis:
-            outputs.append(wsi.num_patches)
+        # for wsi in self.wsis:
+        #     outputs.append(wsi.num_patches)
+
+        for idx in range(0, len(self.wsis), self.batch_size):
+
+            batch_wsi = self.wsis[idx : idx + self.batch_size]
+            max_len = max([wsi.num_patches for wsi in batch_wsi])
+            outputs.append(max_len)
+
 
         # print('cccccc', outputs, id(self))
+        # print(outputs)
         return outputs
 
 
@@ -216,6 +226,8 @@ class WSIDataset(IterableDataset):
                 continue
             # for _ in  range(self.global_seq_len[idx // self.batch_size]):
             max_len = self.global_seq_len[max_len_idx]
+            # print(self.global_seq_len, 'cccc', len(batch_wsi), len(self.wsis), self.batch_size, max_len_idx)
+            # print()
             for patch_id in  range(max_len):
                 # print('ccccccccccc', i)
                 # sleep_time = 0.005 * len(batch_wsi)
@@ -227,16 +239,24 @@ class WSIDataset(IterableDataset):
                     # print(1111, self.global_seq_len[idx // self.batch_size], idx // self.batch_size, _)
                     # outputs = [next(x) for x in batch_wsi]
                     outputs = []
+
                     for x in batch_wsi:
-                        data = next(x).copy()
+
+                        data = next(x)
+                        # .copy()
+                        # t1 = time.time()
+                        # data = data.copy()
+                        # data = next(x)
+                        # t2 = time.time()
+                        # print(t2 - t1)
                         # data = {
                             # 'img': cv2.imread('test_512_patch.jpg'),
                             # 'img': Image.open('test_512_patch.jpg'),
                             # 'label': 1
                         # }
                         # print(type(data['img']))
-                        if self.trans is not None:
-                            data['img'] = self.trans(data['img'])
+                        # if self.trans is not None:
+                        #     data['img'] = self.trans(data['img'])
 
                         # data = {
                         #     'img': torch.randn((3, 256, 256)),
@@ -251,10 +271,15 @@ class WSIDataset(IterableDataset):
 
                         outputs.append(data)
 
-                    # if self.trans is not None:
+                        if self.trans is not None:
+                            # print('heheheh')
+                            data['img'] = self.trans(image=data['img'])['image'] # A
                         # for data in outputs:
                             # data['img'] = self.trans(x)
                         # outputs = [self.trans(x) for x in outputs]
+                        # print(data['img'])
+                        # print(type(data['img']), type(self.trans))
+                        # import sys; sys.exit()
                     # print()
                     # yield default_collate(outputs)
                     yield outputs

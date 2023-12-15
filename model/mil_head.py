@@ -955,9 +955,10 @@ class AttentionHeadAdaptive(nn.Module):
 
         attn_score = self.attention_score(feat_mem.detach(), dim=1)
         cur_iter_mask = self.get_attn_mask(freq_mem=freq_mem)
-        # z = torch.sum(attn_score * cur_iter_mask.detach().unsqueeze(dim=-1) * feat_mem.detach(), dim=1)
-        z = torch.mean(attn_score * cur_iter_mask.detach().unsqueeze(dim=-1) * feat_mem.detach(), dim=1)
+        z = torch.sum(attn_score * cur_iter_mask.detach().unsqueeze(dim=-1) * feat_mem.detach(), dim=1)
+        # z = torch.mean(attn_score * cur_iter_mask.detach().unsqueeze(dim=-1) * feat_mem.detach(), dim=1)
 
+        # print(cur_iter_mask.sum(dim=1))
 
         freq_mem = self.update_freq_mem(freq_mem, cur_iter_mask)
         min_mem = self.update_min_mem(min_mem, cur_iter_mask, attn_score)

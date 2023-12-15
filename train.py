@@ -49,8 +49,24 @@ def get_args_parser():
     parser.add_argument('--dataset', default='cam16')
     parser.add_argument('--num_gpus', default=1)
     parser.add_argument('--local_rank', default=1)
-    parser.add_argument('--epoch', default=100)
+    parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--ckpt_path', default='checkpoint', type=str)
+    parser.add_argument('--all', action='store_true', help='if all, then return all the wsi patches in the wsi, otherwise return patches with the same label as the wsi-level label')
+
+    # parser.add_argument('--model', default='mynet_A_s', type=str, help='name of the model')
+    # parser.add_argument('--dataset', default='cam16')
+    # parser.add_argument('--num_gpus', default=1)
+    # parser.add_argument('--local_rank', default=1)
+    # parser.add_argument('--epoch', type=int, default=100)
+    # parser.add_argument('--ckpt_path', default='checkpoint', type=str)
+    parser.add_argument('--log_dir', default='log', type=str)
+    parser.add_argument('--mem_len', default=512, type=int)
+    # parser.add_argument('--all', action='store_true', help='if all, then return all the wsi patches in the wsi, otherwise return patches with the same label as the wsi-level label')
+    parser.add_argument('--alpha', default=-0.1, type=float)
+    parser.add_argument('--debug', action='store_true', help='if print debug log')
+
+
+                # if not args.all:
     # parser.add_argument('--epochs', default=400, type=int)
     # parser.add_argument('--num_gpus', default=1, type=int)
     # parser.add_argument('--accum_iter', default=1, type=int,
@@ -140,9 +156,10 @@ def main(args):
     # train_dataloader = aa.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=16, num_workers=4)
     # print(dist.get_world_size())
     # train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=args.batch_size, num_workers=4, num_gpus=dist.get_world_size())
-    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=False, batch_size=args.batch_size, num_workers=4)
+    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=False, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4)
-    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=16, num_workers=4)
+    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=64, num_workers=4)
+    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=128, num_workers=4, all=args.all, drop_last=False)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = train_dataloader
@@ -150,7 +167,9 @@ def main(args):
     # model.vit
     # print(dir(model))
     # net = model.utils.build_model(args.model, num_classes).to(dist.get_rank())
-    net = model.utils.build_model(args.model, num_classes).cuda()
+    # net = model.utils.build_model(args.model, num_classes).cuda()
+    net = model.utils.build_model(args.model, num_classes, dis_mem_len=args.mem_len, alpha=args.alpha).cuda()
+
 
     print(net)
     # net = net.to(dist.get_rank())
@@ -188,6 +207,11 @@ def main(args):
     # ) as prof:
 
     mem = None
+    mem = {
+        'freq': None,
+        'feat':None,
+        'min': None
+    }
     for i in range(args.epoch):
         t1 = time.time()
         count = 0
@@ -200,6 +224,7 @@ def main(args):
             #label = data['label'].to(dist.get_rank())
             img = data['img'].cuda(non_blocking=True)
             label = data['label'].cuda(non_blocking=True)
+            # print(img.shape)
             # print(img.shape)
             # img = torch.randn((126, 3, 256, 256)).to(dist.get_rank())
             # img = torch.randn((16, 3, 256, 256)).to(dist.get_rank())
@@ -245,9 +270,9 @@ def main(args):
             # print((t2 - t1) / (data['img'].shape[0] * count))
             # print((t2 - t1) / (64 * count))
 
-            # if iter_idx > 50:
-            #     break
-            # prof.step()
+            # if iter_idx > 30:
+                #  break
+            #  prof.step()
         # break
 
     # print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
@@ -265,7 +290,13 @@ def main(args):
                 count = 0
                 print('evaluating.....')
                 # net.reset()
-                mem = None
+                # mem = None
+
+                mem = {
+                    'freq': None,
+                    'feat':None,
+                    'min': None
+                }
                 for data in val_dataloader:
                     # break
                     #img = data['img'].to(dist.get_rank())
@@ -298,8 +329,16 @@ def main(args):
                         # print('ccccccccccccccc')
                         pred = out.softmax(dim=1)
                         # print(pred.device, label.device)
-                        print('update result')
+                        # print('update result')
                         metric.update(pred, label)
+
+                        print('iter_acc', (pred == label).sum() / pred.shape[0])
+                        mask = pred == label
+                        l1_mask = mask & (label == 1)
+                        l0_mask = mask & (label == 0)
+                        print('label == 1, iter_acc', l1_mask.sum() / pred.shape[0] * 2)
+                        print('label == 0, iter_acc', l0_mask.sum() / pred.shape[0] * 2)
+
 
                     # count += 1
                     # if count > 50:

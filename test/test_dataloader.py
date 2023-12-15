@@ -105,8 +105,8 @@ def test_camlon16_num_workers():
     # trans = build_transforms('train')
     #def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None):
 
-    # dataloader = build_dataloader('cam16', img_set='train', dist=False, batch_size=200, num_workers=4)
-    dataloader = build_small_dataloader('train')
+    dataloader = build_dataloader('cam16', img_set='train', dist=False, batch_size=270, num_workers=4)
+    # dataloader = build_small_dataloader('train')
     print(dataloader)
 
     import time
@@ -116,19 +116,23 @@ def test_camlon16_num_workers():
 
     # tracer = VizTracer()
     # tracer.start()
-    for iter_idx, data in enumerate(dataloader):
+    for e in range(10):
+        for iter_idx, data in enumerate(dataloader):
         # print(data['is_last'])
         # print(data.keys())
-        print(data['img'].shape)
+            print(data['img'].shape)
         # print(data['img'].shape)
         # if iter_idx > 40:
             # break
         # print(data['label'])
         # if data['is_last'].sum() > 0:
         #     print(data)
-        t2 = time.time()
-        print(iter_idx, (t2 - t1) / (iter_idx + 1e-8))
-        print(data['is_last'])
+            t2 = time.time()
+            print(iter_idx, (t2 - t1) / (iter_idx + 1e-8))
+        # print(data['is_last'])
+            if iter_idx > 30:
+                break
+
 
 
 

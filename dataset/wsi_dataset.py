@@ -51,10 +51,12 @@ class WSIDataset(IterableDataset):
         # for wsi in self.wsis:
         #     outputs.append(wsi.num_patches)
 
+        print(len(self.wsis), self.batch_size, 'global_seq_len')
         for idx in range(0, len(self.wsis), self.batch_size):
 
             batch_wsi = self.wsis[idx : idx + self.batch_size]
             max_len = max([wsi.num_patches for wsi in batch_wsi])
+            print()
             outputs.append(max_len)
 
 

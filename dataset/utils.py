@@ -618,7 +618,7 @@ def build_transforms(img_set):
 
 
 
-def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None):
+def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None, all=True, drop_last=True):
     assert isinstance(dist, bool)
     assert img_set in ['val', 'train', 'test']
 
@@ -638,6 +638,16 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_g
         else:
             direction = 0
         wsis = camlon16_wsis(img_set, direction=direction)
+
+        print(all)
+        if not all:
+            tmp = []
+            for wsi in wsis:
+                wsi.patch_level()
+                tmp.append(wsi)
+            wsis = tmp
+
+        print('xxxxxx', )
         dataset_cls = WSIDataset
 
     # if dataset_name == 'cam16_map':
@@ -675,6 +685,8 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_g
         )
 
     else:
+        # print('?????')
+        print(WSIDataLoader)
         dataloader = WSIDataLoader(
             wsis,
             shuffle=shuffle,
@@ -684,8 +696,10 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_g
             num_workers=num_workers,
             transforms=trans,
             allow_repeat=allow_repeat,
-            drop_last=True,
+            # drop_last=True,
+            drop_last=drop_last,
         )
 
 
+    print(dataloader)
     return dataloader

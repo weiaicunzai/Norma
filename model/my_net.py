@@ -55,7 +55,7 @@ class MyNet(nn.Module):
         # import sys; sys.exit()
         # self.head = AttentionHead(n_dim=n_dim, interval=interval, dis_mem_len=dis_mem_len)
         # self.head = AttentionHeadPara(n_dim=n_dim, interval=interval, dis_mem_len=dis_mem_len)
-        self.head = AttentionHeadAdaptive(n_dim=n_dim, dis_mem_len=dis_mem_len)
+        self.head = AttentionHeadAdaptive(n_dim=n_dim, dis_mem_len=dis_mem_len, alpha=alpha)
         self.fc = nn.Linear(n_dim, n_classes)
 
     def reset(self):

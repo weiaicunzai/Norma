@@ -50,11 +50,13 @@ def get_args_parser():
     parser.add_argument('--dataset', default='cam16')
     parser.add_argument('--num_gpus', default=1)
     parser.add_argument('--local_rank', default=1)
-    parser.add_argument('--epoch', default=100)
+    parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--ckpt_path', default='checkpoint', type=str)
     parser.add_argument('--log_dir', default='log', type=str)
     parser.add_argument('--mem_len', default=512, type=int)
     parser.add_argument('--all', action='store_true', help='if all, then return all the wsi patches in the wsi, otherwise return patches with the same label as the wsi-level label')
+    parser.add_argument('--alpha', default=-0.1, type=float)
+    parser.add_argument('--debug', action='store_true', help='if print debug log')
 
     return parser
 
@@ -168,7 +170,7 @@ def main(args):
     # val_dataloader = build_small_dataloader('test')
     val_dataloader = build_small_dataloader('train', args)
     num_classes = dataset.utils.get_num_classes(args.dataset)
-    net = model.utils.build_model(args.model, num_classes, dis_mem_len=args.mem_len).cuda()
+    net = model.utils.build_model(args.model, num_classes, dis_mem_len=args.mem_len, alpha=args.alpha).cuda()
 
     # for iter_idx, data in enumerate(train_dataloader):
     #     print(iter_idx)
@@ -209,10 +211,19 @@ def main(args):
     # ) as prof:
 
     mem = None
-    hook = Hooks()
-    p_label = None
-    freq_mem = None
-    idx_mem = None
+    mem = {
+        'freq': None,
+        'feat':None,
+        'min': None
+    }
+    # hook = Hooks()
+    if args.debug:
+        hook = Hooks()
+        p_label = None
+        freq_mem = None
+        idx_mem = None
+    else:
+        hook = None
 
     count = 0
     for e_idx in range(args.epoch):
@@ -256,9 +267,10 @@ def main(args):
             out, mem = net(img, mem, is_last, hook=hook)
             # continue
             # print(out.shape)
-            with torch.no_grad():
+            if args.debug:
+             with torch.no_grad():
                 # out.soft_max()
-                pred = out.softmax(dim=1).argmax(dim=-1)
+                pred = out.softmax(dim=1).argmax(dim=-1).detach()
                 print('pred', pred)
                 print('label', label)
                 print('iter_acc', (pred == label).sum() / pred.shape[0])
@@ -282,87 +294,89 @@ def main(args):
 
 
             # p_label = data['p_label'].unsqueeze(0)
-            if  p_label is not None:
-                p_label = torch.cat([p_label, data['p_label'].unsqueeze(1)], dim=1)
-                hook('p_label', p_label.detach())
-                if p_label.shape[1] > net.dis_mem_len:
-                    # print(hook.result)
-                    mask = hook.result['mask'].to('cpu')
-                    p_label = p_label[mask.bool()].view(p_label.shape[0], -1)
-                    # hook('p_label', p_label)
+            if args.debug:
+                if  p_label is not None:
+                    p_label = torch.cat([p_label, data['p_label'].unsqueeze(1)], dim=1)
+                    hook('p_label', p_label.detach())
+                    if p_label.shape[1] > net.dis_mem_len:
+                        # print(hook.result)
+                        mask = hook.result['mask'].to('cpu')
+                        p_label = p_label[mask.bool()].view(p_label.shape[0], -1)
+                        # hook('p_label', p_label)
 
-            else:
-                p_label = data['p_label'].unsqueeze(1)
-                hook('p_label', p_label.detach())
+                else:
+                    p_label = data['p_label'].unsqueeze(1)
+                    hook('p_label', p_label.detach())
 
-            # add freq_mem
-            if freq_mem is None:
-                freq_mem = torch.tensor([0] * img.shape[0]).unsqueeze(1)
-            else:
-                freq_mem = torch.cat([freq_mem, torch.tensor([0] * img.shape[0]).unsqueeze(1)], dim=1)
+                # add freq_mem
+                #if freq_mem is None:
+                #    freq_mem = torch.tensor([0] * img.shape[0]).unsqueeze(1)
+                #else:
+                #    freq_mem = torch.cat([freq_mem, torch.tensor([0] * img.shape[0]).unsqueeze(1)], dim=1)
 
-            # add to idx_mem
-            if idx_mem is not None:
-                idx_mem = torch.cat([idx_mem, torch.tensor([idx_mem_iter] * img.shape[0]).unsqueeze(1)], dim=1)
-            else:
-                idx_mem = torch.tensor([idx_mem_iter] * img.shape[0]).unsqueeze(1)
-                # print(idx_mem.shape, freq_mem.shape)
-                # freq_mem.scatter_add_(dim=1, index=idx_mem, src=torch.ones(idx_mem.shape, dtype=freq_mem.dtype))
+                ## add to idx_mem
+                #if idx_mem is not None:
+                #    idx_mem = torch.cat([idx_mem, torch.tensor([idx_mem_iter] * img.shape[0]).unsqueeze(1)], dim=1)
+                #else:
+                #    idx_mem = torch.tensor([idx_mem_iter] * img.shape[0]).unsqueeze(1)
+                #    # print(idx_mem.shape, freq_mem.shape)
+                #    # freq_mem.scatter_add_(dim=1, index=idx_mem, src=torch.ones(idx_mem.shape, dtype=freq_mem.dtype))
+                #    # print(freq_mem)
+                #    # print(hook.result['mask'])
+
+                #freq_mem.scatter_add_(dim=1, index=idx_mem, src=torch.ones(idx_mem.shape, dtype=freq_mem.dtype))
+                #if idx_mem.shape[1] > net.dis_mem_len:
+                #    mask = hook.result['mask'].to('cpu')
+                #    idx_mem  = idx_mem[mask.bool()].view(idx_mem.shape[0], -1)
+                #    # ones =
+
+                #    # mask = p_label
+                #    # new_mem = p_label[mask.bool()].view(p_label.shape[0], -1)
+
+                #    # p_label[mask] = p_label[mask].view()
+                #    # torch.cat([p_label])
+
+                # print(hook.result.keys())
+
+
+                print('-------------------')
+                torch.set_printoptions(profile="full", linewidth=10000)
+                # print('p_label')
+                # print(hook.result.get('p_label'))
+                # print('attn_score')
+                # print((hook.result.get('attn_score') * 100).long())
+                # print('freq_mem')
                 # print(freq_mem)
-                # print(hook.result['mask'])
+                # m = hook.result.get('attn_idx', None)
+                # if m is not None:
+                    # print('attn_idx')
+                    # print(m)
+                    # print((m * 100).long())
 
-            freq_mem.scatter_add_(dim=1, index=idx_mem, src=torch.ones(idx_mem.shape, dtype=freq_mem.dtype))
-            if idx_mem.shape[1] > net.dis_mem_len:
-                mask = hook.result['mask'].to('cpu')
-                idx_mem  = idx_mem[mask.bool()].view(idx_mem.shape[0], -1)
-                # ones =
-
-                # mask = p_label
-                # new_mem = p_label[mask.bool()].view(p_label.shape[0], -1)
-
-                # p_label[mask] = p_label[mask].view()
-                # torch.cat([p_label])
-
-            # print(hook.result.keys())
+                # print('label')
+                # print(data['label'])
+                torch.set_printoptions(profile="default")
 
 
-            print('-------------------')
-            torch.set_printoptions(profile="full", linewidth=10000)
-            print('p_label')
-            print(hook.result.get('p_label'))
-            print('attn_score')
-            print((hook.result.get('attn_score') * 100).long())
-            print('freq_mem')
-            print(freq_mem)
-            m = hook.result.get('attn_idx', None)
-            if m is not None:
-                print('attn_idx')
-                print(m)
-                # print((m * 100).long())
+                print(hook.result['attn_score'].shape, hook.result['p_label'].shape)
+                assert hook.result['attn_score'].shape == hook.result['p_label'].shape
+                img = mics.draw_attn_score(
+                    attn_score=hook.result['attn_score'].to('cpu'),
+                    p_label=hook.result['p_label'].to('cpu'),
+                    min_index=hook.result.get('attn_idx', None),
+                    cell_size=5
+                )
+                # writer.add_image('vis_attn', img.type(torch.uint8), count, dataformats='HWC')
+                print('ccc')
+                cv2.imwrite('tmp3/{}.png'.format(count), cv2.cvtColor(img.numpy(), cv2.COLOR_RGB2BGR))
 
-            print('label')
-            print(data['label'])
-            torch.set_printoptions(profile="default")
+                # cv2.imwrite('tmp1/{}.png'.format(count), img.numpy())
 
-
-            print(hook.result['attn_score'].shape, hook.result['p_label'].shape)
-            assert hook.result['attn_score'].shape == hook.result['p_label'].shape
-            img = mics.draw_attn_score(
-                attn_score=hook.result['attn_score'].to('cpu'),
-                p_label=hook.result['p_label'].to('cpu'),
-                min_index=hook.result.get('attn_idx', None),
-                cell_size=5
-            )
-            # writer.add_image('vis_attn', img.type(torch.uint8), count, dataformats='HWC')
-            cv2.imwrite('tmp2/{}.png'.format(count), cv2.cvtColor(img.numpy(), cv2.COLOR_RGB2BGR))
-
-            # cv2.imwrite('tmp1/{}.png'.format(count), img.numpy())
-
-            hook.result['attn_idx'] = None
-            if is_last.sum() > 0:
-                p_label = None
-                idx_mem = None
-                freq_mem = None
+                hook.result['attn_idx'] = None
+                if is_last.sum() > 0:
+                    p_label = None
+                    idx_mem = None
+                    freq_mem = None
 # print(x) # prints the whole tensor
                 # print(attn_score.flatten())
                 # torch.set_printoptions(profile="default")
@@ -410,6 +424,11 @@ def main(args):
                 print('evaluating.....')
                 # net.reset()
                 mem = None
+                mem = {
+                    'freq': None,
+                    'feat':None,
+                    'min': None
+                }
                 for data in val_dataloader:
                     # break
                     #img = data['img'].to(dist.get_rank())
@@ -440,11 +459,24 @@ def main(args):
 
                     if is_last.sum() > 0:
                         # print('ccccccccccccccc')
-                        pred = out.softmax(dim=1)
+                        pred = out.softmax(dim=1).max(dim=1)[1]
                         # print(pred.device, label.device)
                         print('update result')
                         print(pred, label)
+
+                        print('iter_acc', (pred == label).sum() / pred.shape[0])
+                        mask = pred == label
+                        l1_mask = mask & (label == 1)
+                        l0_mask = mask & (label == 0)
+                        print('label == 1, iter_acc', l1_mask.sum() / pred.shape[0] * 2)
+                        print('label == 0, iter_acc', l0_mask.sum() / pred.shape[0] * 2)
+
                         metric.update(pred, label)
+                        mem = {
+                            'freq': None,
+                            'feat':None,
+                            'min': None
+                        }
 
 
 

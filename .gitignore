@@ -103,3 +103,7 @@ train_little
 conda_py37
 conda_pyszy
 collect_env.py
+train_little_avg_mil_pooling_topK_score
+train_little_eval_is_train
+train_little_eval_is_train_debug
+train_little_save_top64attn_score_for_eval

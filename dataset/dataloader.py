@@ -41,6 +41,9 @@ class WSIDataLoader:
         self.allow_repeat= allow_repeat
 
 
+        print('?????? wwwww')
+        assert len(wsis) > 0
+        print(self.allow_repeat, len(wsis), self.batch_size)
         if self.allow_repeat and len(wsis) < self.batch_size:
             tmp = []
             for wsi in self.cycle(self.wsis):
@@ -49,6 +52,7 @@ class WSIDataLoader:
                     break
             self.wsis = tmp
 
+        print(self.allow_repeat, len(wsis), self.batch_size)
 
         # print(self.allow_repeat)
 
@@ -76,6 +80,7 @@ class WSIDataLoader:
         assert self.batch_size >= self.num_workers
 
         # split batch size for each worker
+        print(self.split_batch_size)
         self.bs_list = self.split_batch_size()
 
 
@@ -92,8 +97,8 @@ class WSIDataLoader:
         print(len(self.wsis), 'ccccccccccc')
         wsis_per_worker = self.split_wsis(self.wsis)
         # print(len(wsis_per_worker))
-        # for ii in wsis_per_worker:
-        #     # print(len(ii))
+        for ii in wsis_per_worker:
+            print(len(ii), 'per_worker')
         #     for i in ii:
         #         print(i.num_patches)
         # import sys; sys.exit()
@@ -123,6 +128,7 @@ class WSIDataLoader:
         # ]
         # for ss in wsis_per_worker:
             # print(len(ss))
+        print(self.build_datasets)
         self.datasets = self.build_datasets(wsis_per_worker)
 
         # import sys; sys.exit()
@@ -247,6 +253,7 @@ class WSIDataLoader:
         for seq in zip(*[dataset.cal_seq_len() for dataset in self.datasets]):
             # print(seq, '11111111')
             # print(max(seq), '11111111')
+            print(len(seq), seq)
             outputs.append(max(seq))
 
         return outputs

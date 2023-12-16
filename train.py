@@ -271,7 +271,7 @@ def main(args):
             # print((t2 - t1) / (64 * count))
 
             # if iter_idx > 30:
-                #  break
+                # break
             #  prof.step()
         # break
 
@@ -325,9 +325,10 @@ def main(args):
 
                     out, mem = net(img, mem, is_last)
 
+                    # if is_last.sum() == 0:
                     if is_last.sum() > 0:
                         # print('ccccccccccccccc')
-                        pred = out.softmax(dim=1)
+                        pred = out.softmax(dim=1).max(dim=1)[1]
                         # print(pred.device, label.device)
                         # print('update result')
                         metric.update(pred, label)

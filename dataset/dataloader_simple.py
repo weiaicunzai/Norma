@@ -46,9 +46,9 @@ class WSIDataset(IterableDataset):
         return outputs
 
     def cycle(self, iterable):
-     while True:
-         for data in iterable:
-             yield data
+        while True:
+            for data in iterable:
+                yield data
 
     def __iter__(self):
 
@@ -137,6 +137,8 @@ class Test(IterableDataset):
                 iter(range(30, 400))
             ],
         ]
+
+        # return
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -227,7 +229,8 @@ class MyIterableDataset(torch.utils.data.IterableDataset):
         # print(current_tmp)
         for i in current_tmp:
             count += 1
-            time.sleep(random.random() / 10)
+            # time.sleep(random.random() / 10)
+            time.sleep(0.003)
             tmp.append(i)
             # print(count)
             if count == bs:
@@ -238,15 +241,158 @@ class MyIterableDataset(torch.utils.data.IterableDataset):
         # for start_idx in range(0, len(self.wsis), step=8):
             # for wsis in self.wsis[start_idx: start_idx+step]:
 
+class MyMapDataset(torch.utils.data.Dataset):
+     def __init__(self, start, end):
+        super().__init__()
+        assert end > start, "this example code only works with end >= start"
+        self.start = start
+        self.end = end
 
-a = MyIterableDataset(start=0, end=400)
+        self.wsis = [
+            # [
+                # iter(range(0, 100)),
+                # iter(range(10, 110)),
+                # iter(range(20, 120)),
+                # iter(range(30, 130)),
+                # iter(range(40, 140)),
+                # iter(range(50, 150)),
+                # iter(range(60, 160)),
+                # iter(range(70, 170)),
+                # iter(range(80, 180)),
+                list(range(0, 100)),
+                list(range(10, 110)),
+                list(range(20, 120)),
+                list(range(30, 130)),
+                list(range(40, 140)),
+                list(range(50, 150)),
+                list(range(60, 160)),
+                list(range(70, 170)),
+        ]
+        tmp = []
+        for wsi in self.wsis:
+            for w in wsi:
+                tmp.append(w)
+        self.wsis = tmp
 
-dataloader = torch.utils.data.DataLoader(a, num_workers=4, batch_size=None)
+     def __len__(self):
+         return len(self.wsis)
+
+     def __getitem__(self, idx):
+        num = self.wsis[idx]
+
+        # time.sleep(random.random() / 10)
+        time.sleep(0.003)
+        return num
+
+
+
+     #def __iter__(self):
+     #   worker_info = torch.utils.data.get_worker_info()
+     #   if worker_info is None:  # single-process data loading, return the full iterator
+     #        iter_start = self.start
+     #        iter_end = self.end
+     #   else:  # in a worker process
+     #        # split workload
+     #        per_worker = int(math.ceil((self.end - self.start) / float(worker_info.num_workers)))
+     #        worker_id = worker_info.id
+     #        iter_start = self.start + worker_id * per_worker
+     #        iter_end = min(iter_start + per_worker, self.end)
+
+     #   #  iter(range(iter_start, iter_end))
+     #   #  range(self.start + worker_id * , self.end, )
+     #   # #  for i in iter(range(iter_start, iter_end)):
+     #   #  for i in iter(range(iter_start, iter_end)):
+     #   #     time.sleep(random.random() / 10)
+     #   #     yield i, worker_id
+     #   # step = 8
+     #   # iter =
+     #   count = 0
+     #   current_tmp = []
+     #   bs = 8
+     #   for i in range(self.start, self.end):
+     #       batch_idx = int(i / bs)
+     #       if batch_idx %  worker_info.num_workers == worker_id:
+     #           current_tmp.append(i)
+
+
+     #       # count += 1
+     #       # if count == 8:
+     #       # count %
+     #       # worker_id * 8
+
+     #   count = 0
+     #   tmp = []
+     #   # print(current_tmp)
+     #   for i in current_tmp:
+     #       count += 1
+     #       time.sleep(random.random() / 10)
+     #       tmp.append(i)
+     #       # print(count)
+     #       if count == bs:
+     #           count = 0
+     #           yield tmp
+     #           tmp = []
+
+# a = MyIterableDataset(start=0, end=400)
+# b = MyMapDataset(start=0, end=400)
+
+# def to_nothing(input):
+    # return input
+# dataloader = torch.utils.data.DataLoader(a, num_workers=4, batch_size=None)
+# dataloader = torch.utils.data.DataLoader(b, num_workers=4, batch_size=8, collate_fn=to_nothing)
 # for i in a:
+
+class MMM(torch.utils.data.Dataset):
+    def __init__(self, start, end):
+        super().__init__()
+        self.data = range(start, end)
+
+    def __len__(self):
+        return len(self.data)
+    def __getitem__(self, idx):
+        data = self.data[idx]
+        time.sleep(0.003)
+        return data
+
+class Iterable(torch.utils.data.IterableDataset):
+    def __init__(self, start, end):
+        super().__init__()
+        self.data = list(range(start, end))
+        self.start = start
+        self.end = end
+
+    def __iter__(self):
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:  # single-process data loading, return the full iterator
+             iter_start = self.start
+             iter_end = self.end
+        else:  # in a worker process
+             # split workload
+             per_worker = int(math.ceil((self.end - self.start) / float(worker_info.num_workers)))
+             worker_id = worker_info.id
+             iter_start = self.start + worker_id * per_worker
+             iter_end = min(iter_start + per_worker, self.end)
+
+        # print(iter_start, iter_end)
+        data = self.data[iter_start : iter_end]
+
+        for i in data:
+            time.sleep(0.003)
+            yield i
+
+
+
+
+map_dataset = MMM(0, 10000)
+iter_dataset = Iterable(0, 10000)
+dataloader = torch.utils.data.DataLoader(map_dataset, num_workers=4, batch_size=64)
+# dataloader = torch.utils.data.DataLoader(iter_dataset, num_workers=4, batch_size=64)
+
 
 import time
 t1 = time.time()
 for i in dataloader:
-    print(i)
+    # print(i)
+    pass
 
 print(time.time() - t1)

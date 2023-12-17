@@ -862,6 +862,99 @@ class WSILMDB(PatchLabelMixIn, FiterCoordsMixIn):
             }
 
 
+
+class WSIJSON(PatchLabelMixIn, FiterCoordsMixIn):
+    def __init__(self, json_path, direction, patch_json_dir):
+
+        """at_mag: extract patches at magnification xxx"""
+
+        # self.env = env
+
+
+        # parsed_json = json.loads(json_data)
+        parsed_json = self.read_json(patch_json_dir, json_path)
+        self.wsi_label = parsed_json['label']
+
+        # all patches
+        self.coords = parsed_json['coords']
+
+        # only wsi-level patches
+        # self.coords = self.parse_coords(parsed_json, json_path)
+
+        self.num_patches = len(self.coords[0])
+        self.parsed_json = parsed_json
+
+        # print(direction)
+        assert direction in [0, 1, 2, 3, 4, 5, 6, 7, -1]
+        self.direction = direction
+        self.json_patch = json_path
+
+    # def shuffle(self):
+        #  self.coords
+
+    def patch_level(self):
+        self.coords = self.parse_coords(self.parsed_json, self.json_patch)
+        self.num_patches = len(self.coords[0])
+
+
+
+
+
+    def __iter__(self):
+
+
+        if self.direction == -1:
+            coords = random.choice(self.coords)
+        else:
+            coords = self.coords[self.direction]
+
+        for coord in coords:
+            # with env.open()
+            # self.env = lmdb.open(db_path, readonly=True)
+            basename = os.path.basename(self.json_patch).replace('json', 'tif')
+            (x, y), level, (patch_size_x, patch_size_y) = coord
+                # print(x, y, level, patch_size_x, patch_size_y)
+            patch_id = '{basename}_{x}_{y}_{level}_{patch_size_x}_{patch_size_y}'.format(
+                basename=basename,
+                x=x,
+                y=y,
+                level=level,
+                patch_size_x=patch_size_x,
+                patch_size_y=patch_size_y)
+
+            # with self.env.begin(write=False) as txn:
+            #     img_stream = txn.get(patch_id.encode())
+            #     # img = Image.open(io.BytesIO(img_stream))
+            #     img = np.frombuffer(img_stream, np.uint8)
+            #     img = cv2.imdecode(img, -1)  # most time is consumed by cv2.imdecode(about 4ms per imge)
+                # __iter__ time : 3ms 763us 97ns
+                # imdecode: 3ms 713us 509ns over 90 percent
+
+
+            # patch_label = self.parsed_json[patch_id]
+
+
+            patch_label = self.parsed_json.get(patch_id, 0)
+
+
+        # if self.trans:
+        #     img = self.trans(image=img)['image']
+
+
+
+
+            yield {
+                #'img': self.wsi.read_region(
+                #    *coord
+                #).convert('RGB'),
+                # 'img': img,
+                'label': self.wsi_label,
+                'p_label': patch_label,
+                # tmp
+                'patch_id': patch_id
+
+            }
+
 # class WSILMDBPatch:
 #     def __init__(self, json_path, direction, patch_label_dir, env=None):
 

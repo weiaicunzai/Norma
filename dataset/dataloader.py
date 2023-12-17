@@ -80,7 +80,7 @@ class WSIDataLoader:
         assert self.batch_size >= self.num_workers
 
         # split batch size for each worker
-        print(self.split_batch_size)
+        # print(self.split_batch_size)
         self.bs_list = self.split_batch_size()
 
 

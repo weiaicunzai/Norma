@@ -79,8 +79,6 @@ class WSIDataset(IterableDataset):
                         else:
                             data['is_last'] = 1
 
-                        # print(patch_id, max_len - 1, data['is_last'])
-
                         outputs.append(data)
 
                         if self.trans is not None:

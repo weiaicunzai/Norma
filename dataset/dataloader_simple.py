@@ -1,4 +1,3 @@
-
 import random
 import warnings
 # from itertools import cycle
@@ -17,7 +16,6 @@ import time
 # from conf import camlon16
 
 from .wsi_reader import CAMLON16MixIn
-
 class WSIDatasetNaive(IterableDataset):
     def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None):
         """the num_worker of each CAMLON16 dataset is one, """

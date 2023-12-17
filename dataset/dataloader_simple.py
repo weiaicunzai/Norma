@@ -53,6 +53,7 @@ class WSIDatasetNaive(IterableDataset):
 
     def __iter__(self):
 
+        worker_info = torch.utils.data.get_worker_info()
         for idx in range(0, len(self.wsis), self.batch_size):
 
             batch_wsi = self.wsis[idx : idx + self.batch_size]
@@ -66,15 +67,18 @@ class WSIDatasetNaive(IterableDataset):
                 warnings.warn('max batch len equals 0')
                 continue
             max_len = self.global_seq_len[max_len_idx]
-            for patch_id in range(max_len):
+            for patch_idx in range(max_len):
 
                     outputs = []
 
                     for x in batch_wsi:
+                        if worker_info is not None:
+                            if patch_idx % worker_info.num_workers != worker_info.id:
+                                continue
 
                         data = next(x)
 
-                        if patch_id < max_len - 1:
+                        if patch_idx < max_len - 1:
                             data['is_last'] = 0
                         else:
                             data['is_last'] = 1

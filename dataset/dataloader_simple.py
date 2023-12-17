@@ -53,10 +53,7 @@ class WSIDatasetNaive(IterableDataset):
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
-        if worker_info is None:
-            for idx in range(0, len(self.wsis), self.batch_size):
-
-                batch_wsi = self.wsis[idx : idx + self.batch_size]
+        for idx in range(0, len(self.wsis), self.batch_size):
 
                 assert len(batch_wsi) == self.batch_size
 
@@ -69,53 +66,31 @@ class WSIDatasetNaive(IterableDataset):
                 max_len = self.global_seq_len[max_len_idx]
                 for patch_id in range(max_len):
 
-                        outputs = []
-
-                        for x in batch_wsi:
-
-                            data = next(x)
-
-                            if patch_id < max_len - 1:
-                                data['is_last'] = 0
-                            else:
-                                data['is_last'] = 1
-
-                            outputs.append(data)
-
-                            if self.trans is not None:
-                                data['img'] = self.trans(image=data['img'])['image'] # A
-
-                        yield outputs
-        else:
-
-            worker_id = worker_info.id
-            for idx in range(0, len(self.wsis), self.batch_size):
-
-                batch_wsi = self.wsis[idx: idx + self.batch_size]
-
-                assert len(batch_wsi) == self.batch_size
-
-                batch_wsi = [self.cycle(x) for x in batch_wsi]
-
-                max_len_idx = idx // self.batch_size
-                if not self.global_seq_len[max_len_idx]:
-                    warnings.warn('max batch len equals 0')
-                    continue
-                max_len = self.global_seq_len[max_len_idx]
-                for patch_id in range(max_len):
+            max_len_idx = idx // self.batch_size
+            if not self.global_seq_len[max_len_idx]:
+                warnings.warn('max batch len equals 0')
+                continue
+            max_len = self.global_seq_len[max_len_idx]
+            for patch_idx in range(max_len):
 
                     outputs = []
                     if patch_id % worker_info.num_workers == worker_id:
                         for x in batch_wsi:
 
-                            data = next(x)
+                    for x in batch_wsi:
+                        if worker_info is not None:
+                            if patch_idx % worker_info.num_workers != worker_info.id:
+                                continue
 
                             if patch_id < max_len - 1:
                                 data['is_last'] = 0
                             else:
                                 data['is_last'] = 1
 
-                            outputs.append(data)
+                        if patch_idx < max_len - 1:
+                            data['is_last'] = 0
+                        else:
+                            data['is_last'] = 1
 
                             if self.trans is not None:
                                 data['img'] = self.trans(image=data['img'])['image']  # A

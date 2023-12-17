@@ -49,7 +49,7 @@ def camlon16_wsis(data_set, direction=-1):
     # env = lmdb.open(db_path, readonly=True)
 
     count = 0
-    env = lmdb.open(lmdb_path, readonly=True)
+    env = lmdb.open(lmdb_path, readonly=True, lock=False)
     for json_dir in dirs['jsons']:
         # for wsi_path in glob.iglob(os.path.join(wsi_dir, '**', '*.tif'), recursive=True):
             # print(wsi_path)
@@ -66,6 +66,11 @@ def camlon16_wsis(data_set, direction=-1):
 
             # import time
             # t1 =time.time()
+
+            # this file do not have
+            if 'test_114' in json_path:
+                continue
+
             print(json_path, count)
             wsi = WSILMDB(
                 # filename['wsi'],

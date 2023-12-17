@@ -12,7 +12,7 @@ from PIL import Image
 import time
 
 
-class WSIDataset(IterableDataset):
+class WSIDatasetNaive(IterableDataset):
     def __init__(self, wsis, batch_size, transforms=None):
         """the num_worker of each CAMLON16 dataset is one, """
 

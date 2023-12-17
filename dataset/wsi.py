@@ -731,6 +731,7 @@ class PatchLabelMixIn:
 
 class FiterCoordsMixIn:
     def parse_coords(self, parsed_json, json_path):
+        # only return patches with the same label as wsi-level label
         wsi_label = parsed_json['label']
 
         # bg
@@ -779,9 +780,14 @@ class WSILMDB(PatchLabelMixIn, FiterCoordsMixIn):
 
         # parsed_json = json.loads(json_data)
         parsed_json = self.read_json(patch_json_dir, json_path)
-        self.label = parsed_json['label']
-        # self.coords = parsed_json['coords']
-        self.coords = self.parse_coords(parsed_json, json_path)
+        self.wsi_label = parsed_json['label']
+
+        # all patches
+        self.coords = parsed_json['coords']
+
+        # only wsi-level patches
+        # self.coords = self.parse_coords(parsed_json, json_path)
+
         self.num_patches = len(self.coords[0])
         self.parsed_json = parsed_json
 
@@ -791,6 +797,13 @@ class WSILMDB(PatchLabelMixIn, FiterCoordsMixIn):
 
     # def shuffle(self):
         #  self.coords
+
+    def patch_level(self):
+        self.coords = self.parse_coords(self.parsed_json, self.json_patch)
+        self.num_patches = len(self.coords[0])
+
+
+
 
 
     def __iter__(self):
@@ -815,17 +828,23 @@ class WSILMDB(PatchLabelMixIn, FiterCoordsMixIn):
                 patch_size_x=patch_size_x,
                 patch_size_y=patch_size_y)
 
-            with self.env.begin() as txn:
+            with self.env.begin(write=False) as txn:
                 img_stream = txn.get(patch_id.encode())
                 # img = Image.open(io.BytesIO(img_stream))
                 img = np.frombuffer(img_stream, np.uint8)
-                img = cv2.imdecode(img, -1)
+                img = cv2.imdecode(img, -1)  # most time is consumed by cv2.imdecode(about 4ms per imge)
+                # __iter__ time : 3ms 763us 97ns
+                # imdecode: 3ms 713us 509ns over 90 percent
 
-            # patch_label = self.parse_coords.get(patch_id, 0)
+
+            # patch_label = self.parsed_json[patch_id]
 
 
-        if self.trans:
-            img = self.trans(image=img)['image']
+            patch_label = self.parsed_json.get(patch_id, 0)
+
+
+        # if self.trans:
+        #     img = self.trans(image=img)['image']
 
 
 
@@ -835,7 +854,11 @@ class WSILMDB(PatchLabelMixIn, FiterCoordsMixIn):
                 #    *coord
                 #).convert('RGB'),
                 'img': img,
-                'label': self.label,
+                'label': self.wsi_label,
+                'p_label': patch_label,
+                # tmp
+                'patch_id': patch_id
+
             }
 
 

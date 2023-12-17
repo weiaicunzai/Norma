@@ -318,18 +318,19 @@ def test_lmdb_dataset():
 
     # trans=None
     # trans = torchvision_trans()
-    from dataset.vit_lmdb import CAM16
+    from dataset.vit_lmdb import CAM16, CAM16B
     trans = None
     trans = A_trans()
-    dataset = CAM16('train', trans=trans)
+    # dataset = CAM16('train', trans=trans)
+    # dataset = CAM16('train', trans=trans)
+    dataset = CAM16B('train', trans=trans)
 
     # dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, num_workers=4, shuffle=True)
     # dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, num_workers=4, shuffle=True, pin_memory=True)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, num_workers=0, shuffle=True, pin_memory=False)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, num_workers=4, shuffle=True, pin_memory=False)
 
     count = 0
     import time
-    t1 = time.time()
 
     import cProfile, pstats
     from pstats import SortKey
@@ -340,32 +341,54 @@ def test_lmdb_dataset():
     sortby = SortKey.CUMULATIVE
     count = 0
     iters = 5000 / 16
-    with cProfile.Profile() as pr:
-        for data in dataloader:
+    # with cProfile.Profile() as pr:
+    # for data in dataloader:
+    # for
             # print(data)
+    print(len(dataset))
+    t1 = time.time()
+    for i in range(10):
+        cancer_count = 0
+        bg_count = 0
+        # count = 0
+        for iter_idx, data in enumerate(dataloader):
         # for data in dataset:
-            # count += 1
-            # print(data['img'].shape)
-            # print(data['label'].shape)
-            # print(data['label'])
-            count += data['img'].shape[0]
-        #    count += data['img'].shape[0]
-        #    print(data['img'].shape)
-           # break
-            # cv2.imwrite('tmp/{}.jpg'.format(count), data['img'])
-            t2 = time.time()
+                # count += 1
+                # print(data['img'].shape)
+                # print(data['label'].shape)
+                # print(data['label'])
+                # count += data['img'].shape[0]
+            #    count += data['img'].shape[0]
+            #    print(data['img'].shape)
+               # break
+                # cv2.imwrite('tmp/{}.jpg'.format(count), data['img'])
+                #if data['label'] == 1:
+                #    bg_count += 1
+                #elif data['label'] == 0:
+                #    cancer_count += 1
+                #else:
+                #    raise ValueError('fffffff')
+
+                # cancer_count += (data['label'] == 1).sum()
+                # bg_count += (data['label'] == 0).sum()
+                print((time.time() - t1) / (iter_idx + 1e-8))
+
+            # t2 = time.time()
             # count+=1
-            print('sample_time:', (t2 - t1) / count, 'iter_time:', (t2 - t1) / (count / data['img'].shape[0]))
+            # print('sample_time:', (t2 - t1) / count, 'iter_time:', (t2 - t1) / (count / data['img'].shape[0]))
+                # if iter_idx % 100 == 0:
+                    # print(cancer_count, bg_count)
 
             # if count == 5000:
 
             # if count > iters:
             #     break
 
+        # print(bg_count, cancer_count)
         # pr.print_stats()
         # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-        ps = pstats.Stats(pr).sort_stats(sortby)
-        ps.print_stats()
+        # ps = pstats.Stats(pr).sort_stats(sortby)
+        # ps.print_stats()
 
 
 

@@ -17,9 +17,16 @@ from torch.utils.data import default_collate
 # from utils.utils import cycle
 
 
+
+def collect_fn(batch, *, collate_fn_map=None):
+    # print(type(batch))
+    # print(len(batch), batch[])
+    return batch
+
+
 class WSIDataLoader:
     # DistributedSampler does not support iterabledataset
-    def __init__(self,  wsis, batch_size, cls_type, num_workers=4, shuffle=True, drop_last=True, transforms=None):
+    def __init__(self,  wsis, batch_size, cls_type, num_workers=4, shuffle=True, drop_last=True, pin_memory=True, transforms=None, allow_repeat=False):
         # self.data_set = data_set
 
         self.wsis = wsis
@@ -31,6 +38,24 @@ class WSIDataLoader:
         self.cls_type = cls_type
         self.shuffle = shuffle
         self.trans = transforms
+        self.allow_repeat= allow_repeat
+
+
+        print('?????? wwwww')
+        assert len(wsis) > 0
+        print(self.allow_repeat, len(wsis), self.batch_size)
+        if self.allow_repeat and len(wsis) < self.batch_size:
+            tmp = []
+            for wsi in self.cycle(self.wsis):
+                tmp.append(wsi)
+                if len(tmp) == self.batch_size:
+                    break
+            self.wsis = tmp
+
+        print(self.allow_repeat, len(wsis), self.batch_size)
+
+        # print(self.allow_repeat)
+
 
 
         # multi gpu training
@@ -55,6 +80,7 @@ class WSIDataLoader:
         assert self.batch_size >= self.num_workers
 
         # split batch size for each worker
+        print(self.split_batch_size)
         self.bs_list = self.split_batch_size()
 
 
@@ -68,7 +94,14 @@ class WSIDataLoader:
 
         # split subsamples into num_workers chunks
         # wsis_per_worker = self.split_wsis(wsis_per_gpu)
+        print(len(self.wsis), 'ccccccccccc')
         wsis_per_worker = self.split_wsis(self.wsis)
+        # print(len(wsis_per_worker))
+        for ii in wsis_per_worker:
+            print(len(ii), 'per_worker')
+        #     for i in ii:
+        #         print(i.num_patches)
+        # import sys; sys.exit()
 
         # for subwsi in wsis_per_worker:
         #     print(len(subwsi))
@@ -95,6 +128,7 @@ class WSIDataLoader:
         # ]
         # for ss in wsis_per_worker:
             # print(len(ss))
+        print(self.build_datasets)
         self.datasets = self.build_datasets(wsis_per_worker)
 
         # import sys; sys.exit()
@@ -107,6 +141,9 @@ class WSIDataLoader:
             DataLoader(
                 dataset,
                 batch_size=None,
+                # num_workers=1, pin_memory=True) for dataset in self.datasets
+                collate_fn=collect_fn,
+                pin_memory=pin_memory,
                 num_workers=1) for dataset in self.datasets
         ]
 
@@ -123,6 +160,7 @@ class WSIDataLoader:
     #         subsample.extend(wsis[:diff])
 
     #     return subsample
+
 
 
 
@@ -158,6 +196,7 @@ class WSIDataLoader:
                 yield data
 
     def split_batch_size(self):
+        # get the number of splits
         base = int(self.batch_size / self.num_workers)
         bs_list = [base for _ in range(self.num_workers)]
         diff = self.batch_size - sum(bs_list)
@@ -177,16 +216,16 @@ class WSIDataLoader:
 
         # get global seq across all the num_workers in current gpu
         global_seq = self.max_seq_per_gpu()
-        # print(global_seq)
+        print('global_seq:', global_seq)
 
 
         # calculate the max element in seq
-        outputs = []
+        # outputs = []
         # for seq in zip(*[dataloader.dataset.global_seq_len for dataloader in self.dataloaders]):
-        for seq in zip(*[dataloader.dataset.cal_seq_len() for dataloader in self.dataloaders]):
-            # if dist.get_rank() == 0:
-                # print('aaa', seq)
-            outputs.append(max(seq))
+        # for seq in zip(*[dataloader.dataset.cal_seq_len() for dataloader in self.dataloaders]):
+        #     # if dist.get_rank() == 0:
+        #         # print('aaa', seq)
+        #     outputs.append(max(seq))
 
         for dataset in self.datasets:
             dataset.global_seq_len = global_seq
@@ -212,8 +251,9 @@ class WSIDataLoader:
             # print(len(dataset.wsis),  dataset.global_seq_len)
         # for seq in zip(*[dataset.global_seq_len for dataset in self.datasets]):
         for seq in zip(*[dataset.cal_seq_len() for dataset in self.datasets]):
-            # if dist.get_rank() == 0:
-                # print('aaa', seq)
+            # print(seq, '11111111')
+            # print(max(seq), '11111111')
+            print(len(seq), seq)
             outputs.append(max(seq))
 
         return outputs
@@ -286,6 +326,12 @@ class WSIDataLoader:
     def split_wsis(self, wsis):
         # num_samples = math.ceil(len(wsis) / self.num_workers)
 
+        # if self.allow_reapt:
+        #     if len(wsis) < self.batch_size:
+        #         for w in iter(wsis):
+
+
+        # else:
         assert len(wsis) >= self.batch_size
 
         if self.drop_last:

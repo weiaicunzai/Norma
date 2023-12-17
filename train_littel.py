@@ -1,6 +1,7 @@
 
 import sys
 import os
+from typing import Any
 sys.path.append(os.getcwd())
 
 from datetime import datetime
@@ -18,6 +19,8 @@ from utils import mics
 # import dataset.aa as aa
 import dataset
 import torch.distributed as dist
+from torch.utils.tensorboard import SummaryWriter
+
 
 import model
 # from model.my_net import MyNet
@@ -25,19 +28,17 @@ from model.vit import vit_base
 from model.utils import build_model
 
 import torchmetrics
-# print(dir(dataset))
-# import sys; sys.exit()
-# import conf
-# from pathlib import Path
-
-# import conf
-# print(conf.camlon16)
+import cv2
 
 
+class Hooks:
+    def __init__(self) -> None:
+        self.result = {}
 
+    def __call__(self, name, input):
+        # self.result.update(name, input)
+        self.result[name] = input
 
-
-# def build_dataloader(dataset_name, img_set, dist, batch_size, num_gpus, num_workers):
 
 def get_args_parser():
     # parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
@@ -51,90 +52,84 @@ def get_args_parser():
     parser.add_argument('--local_rank', default=1)
     parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--ckpt_path', default='checkpoint', type=str)
-    parser.add_argument('--all', action='store_true', help='if all, then return all the wsi patches in the wsi, otherwise return patches with the same label as the wsi-level label')
-
-    # parser.add_argument('--model', default='mynet_A_s', type=str, help='name of the model')
-    # parser.add_argument('--dataset', default='cam16')
-    # parser.add_argument('--num_gpus', default=1)
-    # parser.add_argument('--local_rank', default=1)
-    # parser.add_argument('--epoch', type=int, default=100)
-    # parser.add_argument('--ckpt_path', default='checkpoint', type=str)
     parser.add_argument('--log_dir', default='log', type=str)
     parser.add_argument('--mem_len', default=512, type=int)
-    # parser.add_argument('--all', action='store_true', help='if all, then return all the wsi patches in the wsi, otherwise return patches with the same label as the wsi-level label')
+    parser.add_argument('--all', action='store_true', help='if all, then return all the wsi patches in the wsi, otherwise return patches with the same label as the wsi-level label')
     parser.add_argument('--alpha', default=-0.1, type=float)
     parser.add_argument('--debug', action='store_true', help='if print debug log')
-
-
-                # if not args.all:
-    # parser.add_argument('--epochs', default=400, type=int)
-    # parser.add_argument('--num_gpus', default=1, type=int)
-    # parser.add_argument('--accum_iter', default=1, type=int,
-    #                     help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
-
-    # Model parameters
-    # parser.add_argument('--model', default='mae_vit_large_patch16', type=str, metavar='MODEL',
-    #                     help='Name of model to train')
-
-    # parser.add_argument('--input_size', default=224, type=int,
-    #                     help='images input size')
-
-    # parser.add_argument('--mask_ratio', default=0.75, type=float,
-    #                     help='Masking ratio (percentage of removed patches).')
-
-    # parser.add_argument('--norm_pix_loss', action='store_true',
-    #                     help='Use (per-patch) normalized pixels as targets for computing loss')
-    # parser.set_defaults(norm_pix_loss=False)
-
-    # Optimizer parameters
-    # parser.add_argument('--weight_decay', type=float, default=0.05,
-    #                     help='weight decay (default: 0.05)')
-
-    # parser.add_argument('--lr', type=float, default=None, metavar='LR',
-    #                     help='learning rate (absolute lr)')
-    # parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
-    #                     help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
-    # parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
-    #                     help='lower lr bound for cyclic schedulers that hit 0')
-
-    # parser.add_argument('--warmup_epochs', type=int, default=40, metavar='N',
-    #                     help='epochs to warmup LR')
-
-    # Dataset parameters
-    # parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
-                        # help='dataset path')
-
-    # parser.add_argument('--output_dir', default='./output_dir',
-                        # help='path where to save, empty for no saving')
-    # parser.add_argument('--log_dir', default='./output_dir',
-                        # help='path where to tensorboard log')
-    # parser.add_argument('--device', default='cuda',
-                        # help='device to use for training / testing')
-    # parser.add_argument('--seed', default=0, type=int)
-    # parser.add_argument('--resume', default='',
-                        # help='resume from checkpoint')
-
-    # parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
-                        # help='start epoch')
-    # parser.add_argument('--num_workers', default=10, type=int)
-    # parser.add_argument('--pin_mem', action='store_true',
-                        # help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
-    # parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
-    # parser.set_defaults(pin_mem=True)
-
-    # distributed training parameters
-    # parser.add_argument('--world_size', default=1, type=int,
-    #                     help='number of distributed processes')
-    # parser.add_argument('--local_rank', default=-1, type=int)
-    # parser.add_argument('--dist_on_itp', action='store_true')
-    # parser.add_argument('--dist_url', default='env://',
-    #                     help='url used to set up distributed training')
 
     return parser
 
 
 # def evaluate(net, ):
 
+
+def build_small_dataloader(img_set, args):
+    from dataset import camlon16_wsis
+    wsis = camlon16_wsis(img_set)
+    # print(len(wsis))
+
+    tmp = []
+    for wsi in wsis:
+        if wsi.wsi_label == 0:
+            print(wsi.num_patches)
+            # if not args.all
+            tmp.append(wsi)
+
+            if len(tmp) == 16:
+                break
+
+    for wsi in wsis:
+        if wsi.wsi_label == 1:
+            print(wsi.num_patches)
+            tmp.append(wsi)
+
+            if len(tmp) == 16 * 2:
+                break
+
+
+    if not args.all:
+        for wsi in tmp:
+            wsi.patch_level()
+
+
+    # print(len(wsis))
+    # import sys; sys.exit()
+
+    # from dataset import WSILMDB
+    # wsis
+    wsis = tmp
+
+
+    from dataset.utils import A_trans
+    if img_set == 'train':
+        trans = A_trans(img_set)
+        repeats = True
+    else:
+        trans = A_trans(img_set)
+        repeats = False
+
+    from dataset.wsi_dataset import WSIDataset
+    from dataset.dataloader import WSIDataLoader
+
+
+    dataloader = WSIDataLoader(
+            wsis,
+            shuffle=True,
+            batch_size=32,
+            cls_type=WSIDataset,
+            pin_memory=True,
+            num_workers=4,
+            transforms=trans,
+            allow_repeat=repeats,
+            drop_last=True,
+            # allow_repeat=False,
+        )
+
+    # for data in dataloader:
+        # print
+
+    return dataloader
 
 def main(args):
     # mics.init_process()
@@ -147,29 +142,38 @@ def main(args):
     ckpt_path = os.path.join(
         root_path, args.ckpt_path, TIME_NOW)
     # log_dir = os.path.join(root_path, settings.LOG_FOLDER, args.prefix + '_' +settings.TIME_NOW)
+    log_path = os.path.join(root_path, args.log_dir, TIME_NOW)
+    print(log_path)
+    writer = SummaryWriter(log_dir=log_path)
 
+    # vit_weight_path = '/data/hdd1/by/tmp_folder/checkpoint/Saturday_02_December_2023_21h_55m_48s/13680_0.9084933996200562.pt'
     # if dist.get_rank() == 0:
     if not os.path.exists(ckpt_path):
         print(ckpt_path)
         os.makedirs(ckpt_path)
 
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+
+
     # train_dataloader = aa.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=16, num_workers=4)
     # print(dist.get_world_size())
     # train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=args.batch_size, num_workers=4, num_gpus=dist.get_world_size())
-    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=False, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False)
+    # A_trans
+    # train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=False, batch_size=args.batch_size, num_workers=4)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4)
-    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=64, num_workers=4)
-    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=128, num_workers=4, all=args.all, drop_last=False)
+    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=16, num_workers=4)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = train_dataloader
+    train_dataloader = build_small_dataloader('train', args)
+    # val_dataloader = build_small_dataloader('test')
+    val_dataloader = build_small_dataloader('train', args)
     num_classes = dataset.utils.get_num_classes(args.dataset)
-    # model.vit
-    # print(dir(model))
-    # net = model.utils.build_model(args.model, num_classes).to(dist.get_rank())
-    # net = model.utils.build_model(args.model, num_classes).cuda()
     net = model.utils.build_model(args.model, num_classes, dis_mem_len=args.mem_len, alpha=args.alpha).cuda()
 
+    # for iter_idx, data in enumerate(train_dataloader):
+    #     print(iter_idx)
 
     print(net)
     # net = net.to(dist.get_rank())
@@ -212,10 +216,20 @@ def main(args):
         'feat':None,
         'min': None
     }
-    for i in range(args.epoch):
+    # hook = Hooks()
+    if args.debug:
+        hook = Hooks()
+        p_label = None
+        freq_mem = None
+        idx_mem = None
+    else:
+        hook = None
+
+    count = 0
+    for e_idx in range(args.epoch):
         t1 = time.time()
-        count = 0
         # net.reset()
+        idx_mem_iter = 0
         for iter_idx, data in enumerate(train_dataloader):
              # break
             #  print(count)
@@ -224,7 +238,6 @@ def main(args):
             #label = data['label'].to(dist.get_rank())
             img = data['img'].cuda(non_blocking=True)
             label = data['label'].cuda(non_blocking=True)
-            # print(img.shape)
             # print(img.shape)
             # img = torch.randn((126, 3, 256, 256)).to(dist.get_rank())
             # img = torch.randn((16, 3, 256, 256)).to(dist.get_rank())
@@ -245,10 +258,28 @@ def main(args):
             # is_last = data['is_last'].to(dist.get_rank())
             # if iter_idx == 180:
             #     break
+            # print('wsi_label')
+            # print(label)
+            # print('p_label',
+            # data['p_label'])
             is_last = data['is_last'].cuda(non_blocking=True)
-            out, mem = net(img, mem, is_last)
+            # hook('p_label', data['p_label'])
+            out, mem = net(img, mem, is_last, hook=hook)
             # continue
             # print(out.shape)
+            if args.debug:
+             with torch.no_grad():
+                # out.soft_max()
+                pred = out.softmax(dim=1).argmax(dim=-1).detach()
+                print('pred', pred)
+                print('label', label)
+                print('iter_acc', (pred == label).sum() / pred.shape[0])
+                mask = pred == label
+                l1_mask = mask & (label == 1)
+                l0_mask = mask & (label == 0)
+                print('label == 1, iter_acc', l1_mask.sum() / pred.shape[0] * 2)
+                print('label == 0, iter_acc', l0_mask.sum() / pred.shape[0] * 2)
+
 
             loss = loss_fn(out, label)
             loss.backward()
@@ -259,8 +290,100 @@ def main(args):
             # if dist.get_rank() == 0:
             t2 = time.time()
             # count += img.shape[0] * 2
-            print('epoch {}, iter {}, loss is {:03f}, avg time {:02f}'.format(i, iter_idx, loss, (t2 - t1) / (iter_idx + 1e-8)))
+            print('epoch {}, iter {}, loss is {:03f}, avg time {:02f}'.format(e_idx, iter_idx, loss, (t2 - t1) / (iter_idx + 1e-8)))
 
+
+            # p_label = data['p_label'].unsqueeze(0)
+            if args.debug:
+                if  p_label is not None:
+                    p_label = torch.cat([p_label, data['p_label'].unsqueeze(1)], dim=1)
+                    hook('p_label', p_label.detach())
+                    if p_label.shape[1] > net.dis_mem_len:
+                        # print(hook.result)
+                        mask = hook.result['mask'].to('cpu')
+                        p_label = p_label[mask.bool()].view(p_label.shape[0], -1)
+                        # hook('p_label', p_label)
+
+                else:
+                    p_label = data['p_label'].unsqueeze(1)
+                    hook('p_label', p_label.detach())
+
+                # add freq_mem
+                #if freq_mem is None:
+                #    freq_mem = torch.tensor([0] * img.shape[0]).unsqueeze(1)
+                #else:
+                #    freq_mem = torch.cat([freq_mem, torch.tensor([0] * img.shape[0]).unsqueeze(1)], dim=1)
+
+                ## add to idx_mem
+                #if idx_mem is not None:
+                #    idx_mem = torch.cat([idx_mem, torch.tensor([idx_mem_iter] * img.shape[0]).unsqueeze(1)], dim=1)
+                #else:
+                #    idx_mem = torch.tensor([idx_mem_iter] * img.shape[0]).unsqueeze(1)
+                #    # print(idx_mem.shape, freq_mem.shape)
+                #    # freq_mem.scatter_add_(dim=1, index=idx_mem, src=torch.ones(idx_mem.shape, dtype=freq_mem.dtype))
+                #    # print(freq_mem)
+                #    # print(hook.result['mask'])
+
+                #freq_mem.scatter_add_(dim=1, index=idx_mem, src=torch.ones(idx_mem.shape, dtype=freq_mem.dtype))
+                #if idx_mem.shape[1] > net.dis_mem_len:
+                #    mask = hook.result['mask'].to('cpu')
+                #    idx_mem  = idx_mem[mask.bool()].view(idx_mem.shape[0], -1)
+                #    # ones =
+
+                #    # mask = p_label
+                #    # new_mem = p_label[mask.bool()].view(p_label.shape[0], -1)
+
+                #    # p_label[mask] = p_label[mask].view()
+                #    # torch.cat([p_label])
+
+                # print(hook.result.keys())
+
+
+                print('-------------------')
+                torch.set_printoptions(profile="full", linewidth=10000)
+                # print('p_label')
+                # print(hook.result.get('p_label'))
+                # print('attn_score')
+                # print((hook.result.get('attn_score') * 100).long())
+                # print('freq_mem')
+                # print(freq_mem)
+                # m = hook.result.get('attn_idx', None)
+                # if m is not None:
+                    # print('attn_idx')
+                    # print(m)
+                    # print((m * 100).long())
+
+                # print('label')
+                # print(data['label'])
+                torch.set_printoptions(profile="default")
+
+
+                print(hook.result['attn_score'].shape, hook.result['p_label'].shape)
+                assert hook.result['attn_score'].shape == hook.result['p_label'].shape
+                img = mics.draw_attn_score(
+                    attn_score=hook.result['attn_score'].to('cpu'),
+                    p_label=hook.result['p_label'].to('cpu'),
+                    min_index=hook.result.get('attn_idx', None),
+                    cell_size=5
+                )
+                # writer.add_image('vis_attn', img.type(torch.uint8), count, dataformats='HWC')
+                print('ccc')
+                cv2.imwrite('tmp3/{}.png'.format(count), cv2.cvtColor(img.numpy(), cv2.COLOR_RGB2BGR))
+
+                # cv2.imwrite('tmp1/{}.png'.format(count), img.numpy())
+
+                hook.result['attn_idx'] = None
+                if is_last.sum() > 0:
+                    p_label = None
+                    idx_mem = None
+                    freq_mem = None
+# print(x) # prints the whole tensor
+                # print(attn_score.flatten())
+                # torch.set_printoptions(profile="default")
+            # torch.set_printoptions(profile="full")
+            # print('attn_score', (hook.result['attn_score'] * 100).long())
+            # print('attn_score', (hook.result['attn_score'] * 100).long())
+            # print(p_label.shape)
             # for name, param in net.named_parameters():
             #     if param.grad is None:
             #         print(name)
@@ -270,9 +393,19 @@ def main(args):
             # print((t2 - t1) / (data['img'].shape[0] * count))
             # print((t2 - t1) / (64 * count))
 
-            # if iter_idx > 30:
-                # break
-            #  prof.step()
+            # if iter_idx > 50:
+            #     break
+            # prof.step()
+
+            # visualize
+            mics.visualize_lastlayer(writer, net, count)
+            mics.visualize_scalar(writer, 'loss', loss, count)
+            mics.visualize_scalar(writer,
+                    'learning rate',
+                    optimizer.param_groups[0]['lr'],
+                    count)
+            count += 1
+            idx_mem_iter += 1
         # break
 
     # print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
@@ -290,8 +423,7 @@ def main(args):
                 count = 0
                 print('evaluating.....')
                 # net.reset()
-                # mem = None
-
+                mem = None
                 mem = {
                     'freq': None,
                     'feat':None,
@@ -325,13 +457,12 @@ def main(args):
 
                     out, mem = net(img, mem, is_last)
 
-                    # if is_last.sum() == 0:
                     if is_last.sum() > 0:
                         # print('ccccccccccccccc')
                         pred = out.softmax(dim=1).max(dim=1)[1]
                         # print(pred.device, label.device)
-                        # print('update result')
-                        metric.update(pred, label)
+                        print('update result')
+                        print(pred, label)
 
                         print('iter_acc', (pred == label).sum() / pred.shape[0])
                         mask = pred == label
@@ -339,6 +470,14 @@ def main(args):
                         l0_mask = mask & (label == 0)
                         print('label == 1, iter_acc', l1_mask.sum() / pred.shape[0] * 2)
                         print('label == 0, iter_acc', l0_mask.sum() / pred.shape[0] * 2)
+
+                        metric.update(pred, label)
+                        mem = {
+                            'freq': None,
+                            'feat':None,
+                            'min': None
+                        }
+
 
 
                     # count += 1
@@ -353,11 +492,18 @@ def main(args):
 
         acc_mean = acc.mean()
         # if acc > best_acc:
+        mics.visualize_metric(writer,
+                        #['testB_F1', 'testB_Dice', 'testB_Haus'], testB, iter_idx)
+                        'mean_acc', acc.mean(), count)
+
+        mics.visualize_metric(writer, 'bg', acc[0], count)
+        mics.visualize_metric(writer, 'cancer', acc[0], count)
+
         if acc_mean > best_acc:
         #    # save checkpoints
-            if i > 10:
+            if e_idx > 10:
                 best_acc = acc_mean
-                basename = '{}_{}.pt'.format(i, best_acc)
+                basename = '{}_{}.pt'.format(e_idx, best_acc)
                 save_path = os.path.join(ckpt_path, basename)
                 torch.save(net.state_dict(), os.path.join(ckpt_path, basename))
                 print('saving best checkpoint to {}'.format(save_path))

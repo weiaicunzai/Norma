@@ -798,9 +798,9 @@ class WSILMDB(PatchLabelMixIn, FiterCoordsMixIn):
     # def shuffle(self):
         #  self.coords
 
-    def patch_level(self):
-        self.coords = self.parse_coords(self.parsed_json, self.json_patch)
-        self.num_patches = len(self.coords[0])
+    # def patch_level(self):
+    #     self.coords = self.parse_coords(self.parsed_json, self.json_patch)
+    #     self.num_patches = len(self.coords[0])
 
 
 

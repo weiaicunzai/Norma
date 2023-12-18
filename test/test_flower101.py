@@ -95,7 +95,7 @@ class Dummy(WSIDatasetNaive, TestMixIn):
 ds_dummy = Dummy(
         'train',
     lmdb_path=lmdb_path,
-    batch_size=16,
+    batch_size=4,
     allow_reapt=True,
     drop_last=False
 
@@ -126,7 +126,13 @@ ds_dummy = Dummy(
 dataloader = DataLoader(ds_dummy, batch_size=None, shuffle=False, num_workers=4)
 for data in dataloader:
     #print(data.keys())
-    print(len(data))
+    # print(len(data))
+    # print(data['img'])
+    #print(data)
+    for i in data:
+        print(i['img'], end=' ')
+
+    print()
 #            batch_sampler=None, num_workers=0, collate_fn=None,
 #            pin_memory=False, drop_last=False, timeout=0,
 #            persistent_workers=False

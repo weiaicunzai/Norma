@@ -153,7 +153,7 @@ class WSIDatasetNaive(IterableDataset):
                             if patch_idx % worker_info.num_workers != worker_info.id:
                                 continue
 
-                        data = self.read_img(data)
+                        # data = self.read_img(data)
                         # data['img'] = img
 
                         if patch_idx < max_len - 1:

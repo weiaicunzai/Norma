@@ -181,16 +181,9 @@ class WSIDatasetNaive(IterableDataset):
                             data['img'] = self.trans(image=data['img'])['image'] # A
 
                         self.seed += 1
-<<<<<<< HEAD
 
                     if outputs:
                         yield default_collate(outputs)
-=======
-                    # print("ok")
-                    if outputs :
-                        yield default_collate(outputs)
-                        # yield outputs,worker_info.id
->>>>>>> xxn_cmTrans
 
 
 class CAMLON16Dataset(WSIDatasetNaive, CAMLON16MixIn):

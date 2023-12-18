@@ -5,6 +5,7 @@ import warnings
 from torch.utils.data import IterableDataset
 import torch
 import cv2
+from torch.utils.data import default_collate
 # default_collate
 
 from PIL import Image
@@ -96,7 +97,7 @@ class WSIDatasetNaive(IterableDataset):
 
             batch_wsi = self.wsis[idx : idx + self.batch_size]
             max_len = max([wsi.num_patches for wsi in batch_wsi])
-            print()
+
             outputs.append(max_len)
 
         return outputs
@@ -127,9 +128,18 @@ class WSIDatasetNaive(IterableDataset):
             self.global_seq_len = self.cal_seq_len()
             self.set_random_direction()
 
-        for idx in range(0, len(self.wsis), self.batch_size):
+        # if worker_info.id == 0:
+        #     for x in self.wsis:
+        #         print(x.data, "ok")
+        for idx in range(0, len(self.wsis), self.batch_size):#0
+
+
 
             batch_wsi = self.wsis[idx : idx + self.batch_size]
+
+            # if worker_info.id == 0:
+            #     for x in self.wsis:
+            #         print(x.data,"ok")
 
             assert len(batch_wsi) == self.batch_size
 
@@ -142,11 +152,14 @@ class WSIDatasetNaive(IterableDataset):
                 continue
 
             max_len = self.global_seq_len[max_len_idx]
-            for patch_idx in range(max_len):
+
+            for patch_idx in range(max_len):#104
 
                     outputs = []
-
+                    # if patch_idx % worker_info.num_workers != worker_info.id:
+                    #     continue
                     for x in batch_wsi:
+
                         data = next(x)
 
                         if worker_info is not None:
@@ -155,7 +168,7 @@ class WSIDatasetNaive(IterableDataset):
 
                         # data = self.read_img(data)
                         # data['img'] = img
-
+                        # print(max_len)
                         if patch_idx < max_len - 1:
                             data['is_last'] = 0
                         else:
@@ -167,8 +180,10 @@ class WSIDatasetNaive(IterableDataset):
                             data['img'] = self.trans(image=data['img'])['image'] # A
 
                         self.seed += 1
-
-                    yield outputs
+                    # print("ok")
+                    if outputs :
+                        yield default_collate(outputs)
+                        # yield outputs,worker_info.id
 
 
 class CAMLON16Dataset(WSIDatasetNaive, CAMLON16MixIn):

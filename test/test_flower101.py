@@ -48,6 +48,8 @@ class WSITest:
         self.direction = -1
         self.num_patches = len(self.data)
 
+    def __str__(self):
+        return str(self.data)
 
 
 
@@ -75,10 +77,12 @@ class TestMixIn:
         wsis = []
         for i in range(10):
             wsis.append(
-                WSITest(start=random.randint(1, 10),  end=random.randint(100, 110))
+                WSITest(start=random.randint(1, 10),  end=random.randint(10, 20))
             )
-
-        print(wsis)
+        for i in wsis:
+            print(i.data, end=' ')
+        print()
+        print(len(wsis))
         return wsis
 
 class Dummy(WSIDatasetNaive, TestMixIn):
@@ -122,17 +126,16 @@ ds_dummy = Dummy(
 # a = Test()
 
 # class SAMP:
-
+count=0
 dataloader = DataLoader(ds_dummy, batch_size=None, shuffle=False, num_workers=4)
-for data in dataloader:
-    #print(data.keys())
-    # print(len(data))
-    # print(data['img'])
-    #print(data)
-    for i in data:
-        print(i['img'], end=' ')
 
-    print()
+for data  in dataloader:
+    print(data)
+    # for i in data:
+    #     print(i['img'], end=' ')
+    # count=count+1
+    # print("count",count)
+    # print()
 #            batch_sampler=None, num_workers=0, collate_fn=None,
 #            pin_memory=False, drop_last=False, timeout=0,
 #            persistent_workers=False

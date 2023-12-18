@@ -81,6 +81,7 @@ class TestMixIn:
         for i in range(10):
             wsis.append(
                 WSITest(start=random.randint(1, 10),  end=random.randint(10, 20))
+                # WSITest(start=i * 10,  end=(i+1) * 10)
             )
         for i in wsis:
             print(i.data, end=' ')
@@ -129,11 +130,11 @@ ds_dummy = Dummy(
 # a = Test()
 
 # class SAMP:
-count=0
+# count=0
 dataloader = DataLoader(ds_dummy, batch_size=None, shuffle=False, num_workers=4)
 
 for data  in dataloader:
-    print(data)
+    print(data['img'], '\t\t', data['worker_id'], '\t\t', data['is_last'], '\t', data['count'])
     # for i in data:
     #     print(i['img'], end=' ')
     # count=count+1

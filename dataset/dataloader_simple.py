@@ -132,6 +132,7 @@ class WSIDatasetNaive(IterableDataset):
         # if worker_info.id == 0:
         #     for x in self.wsis:
         #         print(x.data, "ok")
+        count = 0
         for idx in range(0, len(self.wsis), self.batch_size):#0
 
 
@@ -154,6 +155,9 @@ class WSIDatasetNaive(IterableDataset):
 
             max_len = self.global_seq_len[max_len_idx]
 
+            # if wsi len is not divisible by num_workers, the last few elements will
+            # change the order of reading next round
+            # set a global counter to eliminate this issue
             for patch_idx in range(max_len):#104
 
                     outputs = []
@@ -164,8 +168,12 @@ class WSIDatasetNaive(IterableDataset):
                         data = next(x)
 
                         if worker_info is not None:
-                            if patch_idx % worker_info.num_workers != worker_info.id:
+                            # if patch_idx % worker_info.num_workers != worker_info.id:
+                            if count % worker_info.num_workers != worker_info.id:
                                 continue
+
+                            data['worker_id'] = worker_info.id
+                            data['count'] = count
 
                         # data = self.read_img(data)
                         # data['img'] = img
@@ -181,6 +189,8 @@ class WSIDatasetNaive(IterableDataset):
                             data['img'] = self.trans(image=data['img'])['image'] # A
 
                         self.seed += 1
+
+                    count += 1
 
                     if outputs:
                         yield default_collate(outputs)

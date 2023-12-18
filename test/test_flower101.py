@@ -53,7 +53,10 @@ class WSITest:
 
     def __iter__(self):
 
-        for i in self.data:
+        for idx, i in enumerate(self.data):
+            p_label = 0
+            if idx == len(self.data) - 1:
+                p_label == 1
 
             yield {
                 #'img': self.wsi.read_region(
@@ -64,7 +67,7 @@ class WSITest:
                 'label': 0,
                 'p_label': 0,
                 # tmp
-                'patch_id': 0,
+                'patch_id': p_label,
 
             }
 
@@ -75,7 +78,7 @@ class TestMixIn:
         wsis = []
         for i in range(10):
             wsis.append(
-                WSITest(start=random.randint(1, 10),  end=random.randint(100, 110))
+                WSITest(start=random.randint(1, 5),  end=random.randint(20, 25))
             )
 
         print(wsis)
@@ -129,10 +132,14 @@ for data in dataloader:
     # print(len(data))
     # print(data['img'])
     #print(data)
-    for i in data:
-        print(i['img'], end=' ')
+    # for i in data:
+        # print(i['img'], end=' ')
 
-    print()
+
+
+    # print(i['label'], end=' ')
+    print(data['img'],  data['patch_id'])
+    # print()
 #            batch_sampler=None, num_workers=0, collate_fn=None,
 #            pin_memory=False, drop_last=False, timeout=0,
 #            persistent_workers=False

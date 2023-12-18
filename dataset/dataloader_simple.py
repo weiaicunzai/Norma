@@ -2,7 +2,7 @@ import random
 import warnings
 # from itertools import cycle
 # from utils.mics import cycle
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, default_collate
 import torch
 import cv2
 # default_collate
@@ -12,6 +12,7 @@ import lmdb
 import numpy as np
 
 import time
+
 # from .wsi import WSILMDB
 # from conf import camlon16
 
@@ -168,7 +169,8 @@ class WSIDatasetNaive(IterableDataset):
 
                         self.seed += 1
 
-                    yield outputs
+                    if outputs:
+                        yield default_collate(outputs)
 
 
 class CAMLON16Dataset(WSIDatasetNaive, CAMLON16MixIn):

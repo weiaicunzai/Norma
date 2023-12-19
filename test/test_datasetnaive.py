@@ -103,9 +103,9 @@ class Dummy(WSIDatasetNaive, TestMixIn):
 ds_dummy = Dummy(
         'train',
     lmdb_path=lmdb_path,
-    batch_size=4,
+    batch_size=5,
     allow_reapt=True,
-    drop_last=False
+    drop_last=True
 
 )
 # dataset = CAMLON16Dataset(
@@ -131,10 +131,18 @@ ds_dummy = Dummy(
 
 # class SAMP:
 # count=0
-dataloader = DataLoader(ds_dummy, batch_size=None, shuffle=False, num_workers=4)
+dataloader = DataLoader(ds_dummy, batch_size=None, shuffle=False, num_workers=4, persistent_workers=True)
 
-for data  in dataloader:
-    print(data['img'], '\t\t', data['worker_id'], '\t\t', data['is_last'], '\t', data['count'])
+for _ in range(3):
+    print('epoch......')
+    for data  in dataloader:
+        # print(data['img'], '\t\t', data['worker_id'], '\t\t', data['is_last'], '\t', data['count'],  '\t', data['seed'], '\t', data['dir'])
+        # print(data['img'], '\t\t', '\t\t', data['is_last'], '\t', data['worker_id'], data['count'], data['patch_idx'] )
+        print(data['img'], '\t\t', '\t\t', data['is_last'])
+        if data['is_last'].sum() > 0:
+            print('----------------------------')
+
+    # dataloader.dataset.
     # for i in data:
     #     print(i['img'], end=' ')
     # count=count+1

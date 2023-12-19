@@ -13,13 +13,12 @@ import lmdb
 import numpy as np
 
 import time
-
-# from .wsi import WSILMDB
-# from conf import camlon16
+import math
 
 from .wsi_reader import CAMLON16MixIn
+
 class WSIDatasetNaive(IterableDataset):
-    def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None):
+    def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
         """the num_worker of each CAMLON16 dataset is one, """
         assert data_set in ['train', 'val']
 
@@ -32,32 +31,59 @@ class WSIDatasetNaive(IterableDataset):
 
         self.orig_wsis = self.get_wsis(data_set=data_set)
         self.env = lmdb.open(lmdb_path, readonly=True, lock=False)
-        self.seed = 1024
+        self.seed = 52
+
+        self.dist = dist
+
+    def split_wsis(self, wsis):
+            # def get_subsample(self):
+        if self.dist is None:
+            return wsis
+        else:
+            """get wsis for each gpu"""
+            rank = self.dist.get_rank()
+            num_replicas = self.dist.get_world_size()
+            num_samples = math.ceil(len(wsis) / num_replicas)
+            subsample = wsis[rank * num_samples: (rank + 1) * num_samples]
+
+
+            # make sure each gpu acclocated the same number of wsis
+            if len(subsample) < num_samples:
+                diff = num_samples - len(subsample)
+                subsample.extend(wsis[:diff])
+
+            return subsample
+
 
     def get_wsis(self, data_set):
         NotImplementedError
 
-    def set_direction(self, direction):
-        for wsi in self.wsis:
+    def set_direction(self, wsis, direction):
+        for wsi in wsis:
             wsi.direction = direction
 
-    def set_random_direction(self):
+        return wsis
+
+    def set_random_direction(self, wsis):
         random.seed(self.seed)
-        for wsi in self.wsis:
+        for wsi in wsis:
             direction = random.randint(0, 7)
             wsi.direction = direction
+        return wsis
 
     def orgnize_wsis(self, wsis):
         wsis = []
         # when batch size is larger than the total num of wsis
         if self.batch_size > len(self.orig_wsis):
             if self.allow_reapt:
-                for wsi in self.cycle(self.orig_wsis):
-                    wsis.append(wsi)
-                    if len(wsis) == self.batch_size:
-                        break
+                wsis = self.orgnize_wsis
+                while len(wsis) != self.batch_size:
+                # for wsi in self.cycle(self.orig_wsis):
+                    wsis.append(random.sample(self.orgnize_wsis, k=1))
+                    # if len(wsis) == self.batch_size:
+                        # break
             else:
-                raise ValueError('allow_reapt should be True')
+                raise ValueError('allow_reapt should be True when batch_size is larger than the whole wsis')
 
         else:
             # if
@@ -76,27 +102,29 @@ class WSIDatasetNaive(IterableDataset):
                     # if drop last, we randomly sample "total number of self.orig_wsis - remainer" number
                     # of wsis
                     wsis = random.sample(self.orig_wsis, k=len(self.orig_wsis) - remainder)
+                    assert len(wsis) == len(self.orig_wsis) - remainder
+            else:
+                # else return the all orig_wsis
+                return self.orig_wsis
 
         return wsis
 
 
-
-
-
-    def shuffle(self):
+    def shuffle(self, wsis):
         """manually shuffle all the wsis, because when num_workers > 0,
         the copy of dataset wont update in the main process """
         random.seed(self.seed)
-        random.shuffle(self.wsis)
+        random.shuffle(wsis)
 
-    def cal_seq_len(self):
+        return wsis
+
+    def cal_seq_len(self, wsis):
         outputs = []
 
-        # print(len(self.wsis), self.batch_size, 'global_seq_len')
-        for idx in range(0, len(self.wsis), self.batch_size):
-        # for idx in range(0, len(wsis), self.batch_size):
+        # for idx in range(0, len(self.wsis), self.batch_size):
+        for idx in range(0, len(wsis), self.batch_size):
 
-            batch_wsi = self.wsis[idx : idx + self.batch_size]
+            batch_wsi = wsis[idx : idx + self.batch_size]
             max_len = max([wsi.num_patches for wsi in batch_wsi])
 
             outputs.append(max_len)
@@ -113,7 +141,6 @@ class WSIDatasetNaive(IterableDataset):
         patch_id = data['patch_id']
         with self.env.begin(write=False) as txn:
             img_stream = txn.get(patch_id.encode())
-            # img = Image.open(io.BytesIO(img_stream))
             img = np.frombuffer(img_stream, np.uint8)
             img = cv2.imdecode(img, -1)  # most time is consum
 
@@ -124,24 +151,35 @@ class WSIDatasetNaive(IterableDataset):
 
         worker_info = torch.utils.data.get_worker_info()
 
-        if self.data_set == 'train':
-            self.wsis = self.orgnize_wsis(self.orig_wsis)
-            self.global_seq_len = self.cal_seq_len()
-            self.set_random_direction()
+        # if self.data_set == 'train':
+            # self.wsis = self.orgnize_wsis(self.orig_wsis)
+        wsis = self.orgnize_wsis(self.orig_wsis)
+        wsis = self.shuffle(wsis)
+        global_seq_len = self.cal_seq_len(wsis)
+        wsis = self.split_wsis(wsis) # used for ddp training
+        wsis = self.set_random_direction(wsis)
 
-        # if worker_info.id == 0:
-        #     for x in self.wsis:
-        #         print(x.data, "ok")
+        # else:
+        if self.drop_last and self.data_set != 'train':
+            raise ValueError('during inference, the drop_last should not be set to true')
+
+            #self.wsis = self.orgnize_wsis(self.orig_wsis)
+            #global_seq_len = self.cal_seq_len()
+            #wsis = self.split_wsis(wsis)
+            #self.set_random_direction(wsis)
+
+        # for idx in range(0, len(self.wsis), self.batch_size):#0
         count = 0
-        for idx in range(0, len(self.wsis), self.batch_size):#0
+        for idx in range(0, len(wsis), self.batch_size):#0
 
+            # add seeds here to avoid different seed value for
+            # different workers if we set seed += 1024 at the
+            # end of each data = next(x) loop (count might not
+            # be divided by each )
+            self.seed += 1024
 
-
-            batch_wsi = self.wsis[idx : idx + self.batch_size]
-
-            # if worker_info.id == 0:
-            #     for x in self.wsis:
-            #         print(x.data,"ok")
+            # batch_wsi = self.wsis[idx : idx + self.batch_size]
+            batch_wsi = wsis[idx : idx + self.batch_size]
 
             assert len(batch_wsi) == self.batch_size
 
@@ -149,35 +187,34 @@ class WSIDatasetNaive(IterableDataset):
 
             max_len_idx = idx // self.batch_size
 
-            if not self.global_seq_len[max_len_idx]:
+            if not global_seq_len[max_len_idx]:
                 warnings.warn('max batch len equals 0')
                 continue
 
-            max_len = self.global_seq_len[max_len_idx]
+            max_len = global_seq_len[max_len_idx]
 
-            # if wsi len is not divisible by num_workers, the last few elements will
+            # if wsi len is not divisible by num_workers,
+            # the last few elements will
             # change the order of reading next round
             # set a global counter to eliminate this issue
             for patch_idx in range(max_len):#104
 
                     outputs = []
-                    # if patch_idx % worker_info.num_workers != worker_info.id:
-                    #     continue
                     for x in batch_wsi:
 
                         data = next(x)
 
                         if worker_info is not None:
-                            # if patch_idx % worker_info.num_workers != worker_info.id:
                             if count % worker_info.num_workers != worker_info.id:
                                 continue
 
-                            data['worker_id'] = worker_info.id
-                            data['count'] = count
+                            #data['worker_id'] = worker_info.id
+                            #data['count'] = self.count
+                            #data['patch_idx'] = patch_idx
+                            #data['seed'] = tmp_seed
+                            # data['dir'] = tmp_dircts
 
-                        # data = self.read_img(data)
-                        # data['img'] = img
-                        # print(max_len)
+                        # print(data['img'], 'cc', worker_info.id)
                         if patch_idx < max_len - 1:
                             data['is_last'] = 0
                         else:
@@ -187,8 +224,6 @@ class WSIDatasetNaive(IterableDataset):
 
                         if self.trans is not None:
                             data['img'] = self.trans(image=data['img'])['image'] # A
-
-                        self.seed += 1
 
                     count += 1
 

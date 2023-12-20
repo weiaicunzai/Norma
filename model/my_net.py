@@ -65,17 +65,20 @@ class MyNet(nn.Module):
         # print(x.device, 'x.shape', device)
         # print(x.shape)
         x = self.vit(x)
+        # print(self.vit.cls_token.grad)
         # print(x.shape)
         #print(list(self.fc.weight())[0].data.weight)
         # print(self.vit.cls_token[0, 0, 34], self.vit.cls_token.mean())
         # print(x.shape)
         # print(x.shape)
         x, mem = self.head(x, mem, is_last, hook=hook)
+        # print(self.head.attention_U[0].weight.grad)
         # print(mem.requires_grad)
         # print(x.shape) [64, 384]
         # x = x[:, 0]
         # print(x.shape)
         logits = self.fc(x)
+        # print(self.fc.weight.grad)
 
         # if
         # if is_last is not None:

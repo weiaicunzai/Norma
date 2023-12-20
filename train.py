@@ -25,6 +25,8 @@ from model.vit import vit_base
 from model.utils import build_model
 
 import torchmetrics
+from torch.utils.tensorboard import SummaryWriter
+
 # print(dir(dataset))
 # import sys; sys.exit()
 # import conf
@@ -142,24 +144,34 @@ def main(args):
     # if args.num_gpus > 1:
     # if args.num_gpus ==1:
 
+    # print(args)
+    # root_path = os.path.dirname(os.path.abspath(__file__))
+    # ckpt_path = os.path.join(
+    #     root_path, args.ckpt_path, TIME_NOW)
+    # # log_dir = os.path.join(root_path, settings.LOG_FOLDER, args.prefix + '_' +settings.TIME_NOW)
+
+    # if dist.get_rank() == 0:
+    # if not os.path.exists(ckpt_path):
+    #     print(ckpt_path)
+    #     os.makedirs(ckpt_path)
+
+
     print(args)
     root_path = os.path.dirname(os.path.abspath(__file__))
     ckpt_path = os.path.join(
         root_path, args.ckpt_path, TIME_NOW)
     # log_dir = os.path.join(root_path, settings.LOG_FOLDER, args.prefix + '_' +settings.TIME_NOW)
-
-    # if dist.get_rank() == 0:
-    if not os.path.exists(ckpt_path):
-        print(ckpt_path)
-        os.makedirs(ckpt_path)
+    log_path = os.path.join(root_path, args.log_dir, TIME_NOW)
+    print(log_path)
+    writer = SummaryWriter(log_dir=log_path)
 
     # train_dataloader = aa.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=16, num_workers=4)
     # print(dist.get_world_size())
     # train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=args.batch_size, num_workers=4, num_gpus=dist.get_world_size())
-    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=False, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False)
+    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=dist, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=64, num_workers=4)
-    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=128, num_workers=4, all=args.all, drop_last=False)
+    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=dist, batch_size=128, num_workers=4, all=args.all, drop_last=False)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = train_dataloader
@@ -196,15 +208,18 @@ def main(args):
     # import sys; sys.exit()
     # for i in range(10000):
 
-    # from torch.profiler import profile, record_function, ProfilerActivity
-    # with profile(activities=[ProfilerActivity.CUDA], profile_memory=True, record_shapes=True) as prof:
-    # with torch.profiler.profile(
-    #     schedule=torch.profiler.schedule(wait=1, warmup=4, active=3, repeat=1),
-    #     on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/test_mynet'),
-    #     record_shapes=True,
-    #     profile_memory=True,
-    #     with_stack=True
-    # ) as prof:
+    # if args.debug:
+        # from torch.profiler import profile, record_function, ProfilerActivity
+        # with profile(activities=[ProfilerActivity.CUDA], profile_memory=True, record_shapes=True) as prof:
+
+
+    #with torch.profiler.profile(
+    #    schedule=torch.profiler.schedule(wait=1, warmup=4, active=60, repeat=1),
+    #    on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/test_mynet_data'),
+    #    record_shapes=True,
+    #    profile_memory=True,
+    #    with_stack=True
+    #) as prof:
 
     mem = None
     mem = {
@@ -246,19 +261,35 @@ def main(args):
             # if iter_idx == 180:
             #     break
             is_last = data['is_last'].cuda(non_blocking=True)
+
+            optimizer.zero_grad()
+
             out, mem = net(img, mem, is_last)
             # continue
             # print(out.shape)
+                        # if args.debug:
+            # with torch.no_grad():
+            #     # out.soft_max()
+            #     print(out.shape)
+            #     pred = out.softmax(dim=1).argmax(dim=-1).detach()
+            #     # print(pred)
+            #     #print('pred', pred)
+            #     #print('label', label)
+            #     print('iter_acc', (pred == label).sum() / pred.shape[0])
+            #     #mask = pred == label
+            #     #l1_mask = mask & (label == 1)
+            #     #l0_mask = mask & (label == 0)
+            #     l1_mask = (pred == 1) & (label == 1)
+            #     l0_mask = (pred == 0) & (label == 0)
+            #     print('label == 1, iter_acc', l1_mask.sum() / (label == 1).sum())
+            #     print('label == 0, iter_acc', l0_mask.sum() / (label == 0).sum())
+                #print('label == 0, iter_acc', l0_mask.sum() / pred.shape[0] * 2)
 
             loss = loss_fn(out, label)
             loss.backward()
-            # print(loss.item())
             optimizer.step()
-            optimizer.zero_grad()
 
-            # if dist.get_rank() == 0:
             t2 = time.time()
-            # count += img.shape[0] * 2
             print('epoch {}, iter {}, loss is {:03f}, avg time {:02f}'.format(i, iter_idx, loss, (t2 - t1) / (iter_idx + 1e-8)))
 
             # for name, param in net.named_parameters():
@@ -270,15 +301,28 @@ def main(args):
             # print((t2 - t1) / (data['img'].shape[0] * count))
             # print((t2 - t1) / (64 * count))
 
-            # if iter_idx > 30:
+            # if iter_idx > 70:
                 # break
-            #  prof.step()
+            # prof.step()
         # break
 
     # print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
+            mics.visualize_lastlayer(writer, net, count)
+            mics.visualize_scalar(writer, 'loss', loss, count)
+            mics.visualize_scalar(writer,
+                    'learning rate',
+                    optimizer.param_groups[0]['lr'],
+                    count)
+            count += 1
+            # idx_mem_iter += 1
 
-    # import sys; sys.exit()
 
+        # import sys; sys.exit()
+        mics.visualize_param_hist(
+            writer,
+            net,
+            n_iter=i
+        )
 
     # start eval:
         # if dist.get_rank() == 0:

@@ -14,6 +14,8 @@ import torch
 
 from conf.camlon16 import train_dirs
 from dataset.dataloader_simple import CAMLON16Dataset, WSIDatasetNaive
+import torch.distributed as dist
+
 
 
 lmdb_path = train_dirs['lmdb'][0]
@@ -80,8 +82,8 @@ class TestMixIn:
         wsis = []
         for i in range(10):
             wsis.append(
-                WSITest(start=random.randint(1, 10),  end=random.randint(10, 20))
-                # WSITest(start=i * 10,  end=(i+1) * 10)
+                # WSITest(start=random.randint(1, 10),  end=random.randint(10, 20))
+                WSITest(start=i * 10,  end=(i+1) * 10)
             )
         for i in wsis:
             print(i.data, end=' ')
@@ -100,13 +102,15 @@ class Dummy(WSIDatasetNaive, TestMixIn):
 #     allow_reapt=True,
 #     drop_last=False
 # )
+print(dist)
 ds_dummy = Dummy(
         'train',
     lmdb_path=lmdb_path,
-    batch_size=5,
+    batch_size=4,
     allow_reapt=True,
-    drop_last=True
-
+    drop_last=True,
+    # drop_last=False,
+    dist=dist,
 )
 # dataset = CAMLON16Dataset(
 #     data_set='train',
@@ -131,16 +135,24 @@ ds_dummy = Dummy(
 
 # class SAMP:
 # count=0
+from utils.mics import init_process
+init_process()
 dataloader = DataLoader(ds_dummy, batch_size=None, shuffle=False, num_workers=4, persistent_workers=True)
 
+rank = 2
+
 for _ in range(3):
-    print('epoch......')
+    # if dist.get_rank() == rank:
+    # print('epoch......', dist.get_rank(), dist.get_world_size())
+    time.sleep(1)
     for data  in dataloader:
         # print(data['img'], '\t\t', data['worker_id'], '\t\t', data['is_last'], '\t', data['count'],  '\t', data['seed'], '\t', data['dir'])
         # print(data['img'], '\t\t', '\t\t', data['is_last'], '\t', data['worker_id'], data['count'], data['patch_idx'] )
-        print(data['img'], '\t\t', '\t\t', data['is_last'])
-        if data['is_last'].sum() > 0:
-            print('----------------------------')
+        if dist.get_rank() == rank:
+            # print(data['img'], '\t\t', '\t\t', data['is_last'], dist.get_rank())
+            print(data['img'], '\t\t', '\t\t', data['is_last'])
+            if data['is_last'].sum() > 0:
+                print('----------------------------')
 
     # dataloader.dataset.
     # for i in data:

@@ -99,6 +99,7 @@ class CAMLON16MixIn:
                 else:
                     print(json_path, 'is 0')
 
+        print(len(wsis))
         return wsis
 
 

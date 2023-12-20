@@ -36,8 +36,7 @@ class WSIDatasetNaive(IterableDataset):
         self.dist = dist
 
     def split_wsis(self, wsis):
-            # def get_subsample(self):
-        if self.dist is None:
+        if not self.dist.is_initialized():
             return wsis
         else:
             """get wsis for each gpu"""
@@ -71,42 +70,37 @@ class WSIDatasetNaive(IterableDataset):
             wsi.direction = direction
         return wsis
 
-    def orgnize_wsis(self, wsis):
+    def orgnize_wsis(self, orig_wsis):
         wsis = []
         # when batch size is larger than the total num of wsis
-        if self.batch_size > len(self.orig_wsis):
+        if self.batch_size > len(orig_wsis):
             if self.allow_reapt:
-                wsis = self.orgnize_wsis
+                wsis = orig_wsis
                 while len(wsis) != self.batch_size:
-                # for wsi in self.cycle(self.orig_wsis):
-                    wsis.append(random.sample(self.orgnize_wsis, k=1))
-                    # if len(wsis) == self.batch_size:
-                        # break
+                    wsis.extend(random.sample(orig_wsis, k=1))
             else:
                 raise ValueError('allow_reapt should be True when batch_size is larger than the whole wsis')
 
         else:
-            # if
-            remainder = len(self.orig_wsis) % self.batch_size
+            remainder = len(orig_wsis) % self.batch_size
             # if the total number of wsis is not divisible by batch_size
             if remainder > 0:
                 # if we do not drop the last, we randomly select "self.batch_size - remainder" number of
                 # samples add to the orig_
                 random.seed(self.seed)
                 if not self.drop_last:
-                    wsis = self.orig_wsis
-                    for wsi in random.sample(self.orig_wsis, k=self.batch_size - remainder):
+                    wsis = orig_wsis
+                    # for wsi in random.sample(self.orig_wsis, k=self.batch_size - remainder):
+                    for wsi in random.sample(orig_wsis, k=self.batch_size - remainder):
                         wsis.append(wsi)
 
                 else:
                     # if drop last, we randomly sample "total number of self.orig_wsis - remainer" number
                     # of wsis
-                    wsis = random.sample(self.orig_wsis, k=len(self.orig_wsis) - remainder)
-                    assert len(wsis) == len(self.orig_wsis) - remainder
+                    wsis = random.sample(orig_wsis, k=len(orig_wsis) - remainder)
+                    assert len(wsis) == len(orig_wsis) - remainder
             else:
-                # else return the all orig_wsis
-                return self.orig_wsis
-
+                wsis = orig_wsis
         return wsis
 
 
@@ -121,7 +115,6 @@ class WSIDatasetNaive(IterableDataset):
     def cal_seq_len(self, wsis):
         outputs = []
 
-        # for idx in range(0, len(self.wsis), self.batch_size):
         for idx in range(0, len(wsis), self.batch_size):
 
             batch_wsi = wsis[idx : idx + self.batch_size]
@@ -132,9 +125,9 @@ class WSIDatasetNaive(IterableDataset):
         return outputs
 
     def cycle(self, iterable):
-     while True:
-         for data in iterable:
-             yield data
+        while True:
+            for data in iterable:
+                yield data
 
     def read_img(self, data):
 
@@ -151,24 +144,24 @@ class WSIDatasetNaive(IterableDataset):
 
         worker_info = torch.utils.data.get_worker_info()
 
-        # if self.data_set == 'train':
-            # self.wsis = self.orgnize_wsis(self.orig_wsis)
-        wsis = self.orgnize_wsis(self.orig_wsis)
+        # create a new list to avoid change the self.orig_wsis
+        # during each epoch
+        wsis = []
+        for wsi in self.orig_wsis:
+            wsis.append(wsi)
+
         wsis = self.shuffle(wsis)
-        global_seq_len = self.cal_seq_len(wsis)
         wsis = self.split_wsis(wsis) # used for ddp training
-        wsis = self.set_random_direction(wsis)
+        wsis = self.orgnize_wsis(wsis)
+        global_seq_len = self.cal_seq_len(wsis)
 
-        # else:
-        if self.drop_last and self.data_set != 'train':
-            raise ValueError('during inference, the drop_last should not be set to true')
+        if self.data_set != 'train':
+            wsis = self.set_direction(wsis, direction=0)
+            if self.drop_last:
+                raise ValueError('during inference, the drop_last should not be set to true')
+        else:
+            wsis = self.set_random_direction(wsis)
 
-            #self.wsis = self.orgnize_wsis(self.orig_wsis)
-            #global_seq_len = self.cal_seq_len()
-            #wsis = self.split_wsis(wsis)
-            #self.set_random_direction(wsis)
-
-        # for idx in range(0, len(self.wsis), self.batch_size):#0
         count = 0
         for idx in range(0, len(wsis), self.batch_size):#0
 
@@ -178,7 +171,6 @@ class WSIDatasetNaive(IterableDataset):
             # be divided by each )
             self.seed += 1024
 
-            # batch_wsi = self.wsis[idx : idx + self.batch_size]
             batch_wsi = wsis[idx : idx + self.batch_size]
 
             assert len(batch_wsi) == self.batch_size
@@ -213,8 +205,8 @@ class WSIDatasetNaive(IterableDataset):
                             #data['patch_idx'] = patch_idx
                             #data['seed'] = tmp_seed
                             # data['dir'] = tmp_dircts
+                        data = self.read_img(data)
 
-                        # print(data['img'], 'cc', worker_info.id)
                         if patch_idx < max_len - 1:
                             data['is_last'] = 0
                         else:
@@ -232,6 +224,16 @@ class WSIDatasetNaive(IterableDataset):
 
 
 class CAMLON16Dataset(WSIDatasetNaive, CAMLON16MixIn):
+    def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None, all=True):
+        self.all = all
+        super().__init__(data_set, lmdb_path, batch_size, drop_last, allow_reapt, transforms, dist)
+        # print(self.all, 'cccccccccccccccccccccccccc')
 
     def get_wsis(self, data_set):
-        return self.camlon16_wsis(data_set)
+        wsis = self.camlon16_wsis(data_set)
+        if not self.all:
+            print('hello')
+            for wsi in wsis:
+                wsi.patch_level()
+
+        return wsis

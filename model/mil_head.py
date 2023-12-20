@@ -904,8 +904,24 @@ class AttentionHeadAdaptive(nn.Module):
 
     @torch.no_grad()
     def update_freq_mem(self, freq_mem, cur_iter_mask):
-        freq_mem[cur_iter_mask] += 1
+        # print(cur_iter_mask.dtype)
+        # print(cur_iter_mask.shape, cur_iter_mask.dtype, freq_mem.shape)
+        # freq_mem[cur_iter_mask.bool()] += 1
+        # use plus instead of mask to acc the during time
+        # tmp = freq_mem.clone()
+        # print('before')
+        # print(tmp)
+        # freq_mem[cur_iter_mask.bool()]  += 1
+        # print('fff')
+        # print(freq_mem)
+        # freq_mem = freq_mem + cur_iter_mask
+        # tmp = tmp + cur_iter_mask.long()
+        # print('tmp plus', tmp)
+        # print((freq_mem - tmp).float().sum())
+        freq_mem = freq_mem + cur_iter_mask.long()
+        # print(freq_mem.dtype)
         return freq_mem
+        # return freq_mem + cur_iter_mask
 
     @torch.no_grad()
     def update_min_mem(self, min_mem, cur_iter_mask, attn_score):
@@ -921,7 +937,8 @@ class AttentionHeadAdaptive(nn.Module):
         # min_mask = torch.ones(min_mem.shape[:2], device=attn_idx.device).scatter_(1, attn_idx, 0.)
         min_mask = torch.zeros(min_mem.shape[:2], device=attn_idx.device).scatter_(1, attn_idx, 1.)
 
-        min_mem[min_mask.bool()] += 1
+        # min_mem[min_mask.bool()] += 1
+        min_mem = min_mem + min_mask
 
         return min_mem
 
@@ -953,9 +970,236 @@ class AttentionHeadAdaptive(nn.Module):
         else:
             min_mem = zero
 
-        attn_score = self.attention_score(feat_mem.detach(), dim=1)
+        # attn_score = self.attention_score(feat_mem.detach(), dim=1)
+        attn_score = self.attention_score(feat_mem, dim=1)
         cur_iter_mask = self.get_attn_mask(freq_mem=freq_mem)
-        z = torch.sum(attn_score * cur_iter_mask.detach().unsqueeze(dim=-1) * feat_mem.detach(), dim=1)
+        z = torch.sum(attn_score * cur_iter_mask.unsqueeze(dim=-1) * feat_mem, dim=1)
+        # z = torch.mean(attn_score * cur_iter_mask.detach().unsqueeze(dim=-1) * feat_mem.detach(), dim=1)
+        # print('cur_iter_len', cur_iter_mask.sum(dim=1).flatten())
+        # print('iter_len', self.dis_mem_len)
+
+        # print(cur_iter_mask.sum(dim=1))
+
+        freq_mem = self.update_freq_mem(freq_mem, cur_iter_mask)
+        min_mem = self.update_min_mem(min_mem, cur_iter_mask, attn_score)
+
+        assert (freq_mem != 0).all()
+        assert (min_mem <= freq_mem).all()
+
+        if freq_mem.shape[1] > self.dis_mem_len:
+            # print(freq_mem)
+            if self.training:
+                rm_mask = freq_mem > 5
+            else:
+                rm_mask = freq_mem > 0
+            # rm_mask = freq_mem > 5
+
+            # hook
+            if rm_mask.sum() > 0:
+
+                if self.training:
+                   rm_idx = ((min_mem / freq_mem) * rm_mask).max(dim=1, keepdim=True)[1]
+                else:
+                   rm_idx = attn_score.min(dim=1)[1]
+
+                # rm_idx = ((min_mem / freq_mem) * rm_mask).max(dim=1, keepdim=True)[1]
+
+                if hook is not None:
+                    hook('attn_idx', rm_idx)
+
+                min_mask = torch.zeros(feat_mem.shape[:2], device=rm_idx.device).scatter_(1, rm_idx, 1.)
+                min_mask = ~min_mask.bool()
+
+                feat_mem = feat_mem[min_mask.bool()].detach().view(feat_mem.shape[0], -1, feat_mem.shape[-1])
+                min_mem = min_mem[min_mask.bool()].detach().view(min_mem.shape[0], -1)
+                freq_mem = freq_mem[min_mask.bool()].detach().view(freq_mem.shape[0], -1)
+
+
+                if hook is not None:
+                    hook('rm_idx', rm_idx)
+                    hook('mask', min_mask)
+
+        if hook is not None:
+            hook('attn_score', attn_score.squeeze(dim=-1).detach())
+            # hook('rm_idx', rm_idx)
+
+        if is_last.sum() > 0:
+            for k, v in mems.items():
+                mems[k] = None
+        else:
+            mems['feat'] = feat_mem.detach()
+            mems['freq'] = freq_mem.detach()
+            mems['min'] = min_mem.detach()
+
+
+        return z, mems
+
+
+
+
+class AttentionHeadAdaptive1(nn.Module):
+    # def __init__(self, n_dim, dis_mem_len, interval) -> None:
+    def __init__(self, n_dim, dis_mem_len, alpha=-0.1) -> None:
+        super().__init__()
+
+        # self.interval = interval
+        self.dis_mem_len = dis_mem_len
+        self.alpha = alpha
+        # self.can_mem_len = can_mem_len
+
+        # self.attention_gate = Attention_Gated(n_dim)
+        # self.dis_mem = None
+        # self.cand_mem = None
+
+        # self.dis_mem_counter = []
+        # self.cand_mem_counter = []
+
+
+        self.attention_V = nn.Sequential(
+            nn.Linear(n_dim, n_dim),
+            nn.Tanh()
+        )
+
+        self.attention_U = nn.Sequential(
+            # nn.Linear(self.L, self.D),
+            nn.Linear(n_dim, n_dim),
+            nn.Sigmoid()
+        )
+
+        self.attention_weights = nn.Linear(n_dim, 1)
+
+
+    def attention_score(self, x, dim=None):
+
+        attn_v = self.attention_V(x)
+        attn_u = self.attention_U(x)  # NxD
+        attn = self.attention_weights(attn_v * attn_u) # NxK
+        # attn_score = F.softmax(attn, dim=dim)  # softmax over N
+        attn_score = torch.sigmoid(attn)
+
+        return attn_score
+
+    # def
+#     def _update_mem(self, wsi_feat, attn_score, hook=None):
+#         with torch.no_grad():
+#             len = wsi_feat.shape[1]
+#             # print('attn_score', attn_score)
+#             if len > self.dis_mem_len:
+
+#                 #attn_idx = torch.topk(attn_score, k=wsi_feat.shape[1] - 1, dim=1, sorted=False)[1]
+#                 #new_attn_idx = attn_idx.expand(attn_idx.shape[0], attn_idx.shape[1], wsi_feat.shape[-1])
+#                 #new_mem = torch.gather(wsi_feat, dim=1, index=new_attn_idx)
+#                 # print('attn_score')
+#                 # torch.set_printoptions(profile="full")
+# # print(x) # prints the whole tensor
+#                 # print(attn_score.flatten())
+#                 # torch.set_printoptions(profile="default")
+
+#                 attn_idx = torch.min(attn_score, dim=1)[1]
+#                 # print('attn_idx')
+#                 # print(attn_idx.flatten())
+#                 # print(attn_idx)
+#                 mask = torch.ones(wsi_feat.shape[:2], device=attn_idx.device).scatter_(1, attn_idx, 0.)
+#                 new_mem = wsi_feat[mask.bool()].view(wsi_feat.shape[0], -1, wsi_feat.shape[-1])
+
+#                 # if p_label is not None:
+#                 #     p_label = p_label[mask.bool()].view(wsi_feat.shape[0], -1, wsi_feat.shape[-1])
+#                 if hook is not None:
+#                     hook('attn_idx', attn_idx)
+#                     hook('mask', mask)
+
+#                 return new_mem
+#             else:
+#                 return wsi_feat.detach()
+
+    @torch.no_grad()
+    def get_attn_mask(self, freq_mem):
+
+        if self.training:
+            # alpha = -0.2
+
+            # attn_score = attn_score - attn_score.min()
+            min_freq =  freq_mem - freq_mem.min()
+            probs = torch.exp(self.alpha * min_freq)
+            rand = torch.rand(size=probs.shape, device=probs.device)
+            mask = probs > rand
+        else:
+            mask = torch.ones(size=freq_mem.shape, device=freq_mem.device)
+
+        return mask
+
+    @torch.no_grad()
+    def update_freq_mem(self, freq_mem, cur_iter_mask):
+        # print(cur_iter_mask.dtype)
+        # print(cur_iter_mask.shape, cur_iter_mask.dtype, freq_mem.shape)
+        # freq_mem[cur_iter_mask.bool()] += 1
+        # use plus instead of mask to acc the during time
+        # tmp = freq_mem.clone()
+        # print('before')
+        # print(tmp)
+        # freq_mem[cur_iter_mask.bool()]  += 1
+        # print('fff')
+        # print(freq_mem)
+        # freq_mem = freq_mem + cur_iter_mask
+        # tmp = tmp + cur_iter_mask.long()
+        # print('tmp plus', tmp)
+        # print((freq_mem - tmp).float().sum())
+        freq_mem = freq_mem + cur_iter_mask.long()
+        # print(freq_mem.dtype)
+        return freq_mem
+        # return freq_mem + cur_iter_mask
+
+    @torch.no_grad()
+    def update_min_mem(self, min_mem, cur_iter_mask, attn_score):
+        # cur_iter_mask = cur_iter_mask.float()
+        # mask = torch.where(cur_iter_mask == True, cu)
+
+        # current_iter_mask = current_iter_mask.float()
+        float_mask = cur_iter_mask.float()
+        mask = torch.where(float_mask == 1, float_mask, torch.inf)
+        # print(mask)
+        #    print(current_iter_mask, 'after')
+        attn_idx = (attn_score * mask.unsqueeze(dim=-1)).min(dim=1)[1]
+        # min_mask = torch.ones(min_mem.shape[:2], device=attn_idx.device).scatter_(1, attn_idx, 0.)
+        min_mask = torch.zeros(min_mem.shape[:2], device=attn_idx.device).scatter_(1, attn_idx, 1.)
+
+        # min_mem[min_mask.bool()] += 1
+        min_mem = min_mem + min_mask
+
+        return min_mem
+
+
+    def forward(self, x, mems, is_last, hook=None):
+
+        """input a sequence x with shape [B, len, dim],
+            and return a hidden dimension with [B, dim]
+        """
+        cls_token = x[:, 0, :].unsqueeze(dim=1)
+        feat_mem = mems['feat']
+        freq_mem = mems['freq']
+        min_mem = mems['min']
+        bs = x.shape[0]
+
+        if feat_mem is not None:
+            feat_mem = torch.cat([feat_mem, cls_token], dim=1)
+        else:
+            feat_mem = cls_token
+
+        zero = torch.zeros((bs, 1), device=x.device).long()
+        if freq_mem is not None:
+            freq_mem = torch.cat([freq_mem, zero], dim=1)
+        else:
+            freq_mem = zero
+
+        if min_mem is not None:
+            min_mem = torch.cat([min_mem, zero], dim=1)
+        else:
+            min_mem = zero
+
+        # attn_score = self.attention_score(feat_mem.detach(), dim=1)
+        attn_score = self.attention_score(feat_mem, dim=1)
+        cur_iter_mask = self.get_attn_mask(freq_mem=freq_mem)
+        z = torch.sum(attn_score * cur_iter_mask.unsqueeze(dim=-1) * feat_mem, dim=1)
         # z = torch.mean(attn_score * cur_iter_mask.detach().unsqueeze(dim=-1) * feat_mem.detach(), dim=1)
 
         # print(cur_iter_mask.sum(dim=1))
@@ -990,9 +1234,9 @@ class AttentionHeadAdaptive(nn.Module):
                 min_mask = torch.zeros(feat_mem.shape[:2], device=rm_idx.device).scatter_(1, rm_idx, 1.)
                 min_mask = ~min_mask.bool()
 
-                feat_mem = feat_mem[min_mask.bool()].view(feat_mem.shape[0], -1, feat_mem.shape[-1])
-                min_mem = min_mem[min_mask.bool()].view(min_mem.shape[0], -1)
-                freq_mem = freq_mem[min_mask.bool()].view(freq_mem.shape[0], -1)
+                feat_mem = feat_mem[min_mask.bool()].detach().view(feat_mem.shape[0], -1, feat_mem.shape[-1])
+                min_mem = min_mem[min_mask.bool()].detach().view(min_mem.shape[0], -1)
+                freq_mem = freq_mem[min_mask.bool()].detach().view(freq_mem.shape[0], -1)
 
 
                 if hook is not None:
@@ -1013,7 +1257,6 @@ class AttentionHeadAdaptive(nn.Module):
 
 
         return z, mems
-
 
 
 # net = Attention_with_Classifier()

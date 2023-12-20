@@ -618,8 +618,9 @@ def build_transforms(img_set):
 
 
 
-def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None, all=True, drop_last=True):
-    assert isinstance(dist, bool)
+# def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None, all=True, drop_last=True):
+def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=True, drop_last=True):
+    # assert isinstance(dist, bool)
     assert img_set in ['val', 'train', 'test']
 
     trans = build_transforms(img_set)
@@ -628,27 +629,27 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_g
 
     # if dataset_name == 'cam16_seq':
     if dataset_name == 'cam16':
-        from dataset.wsi_reader import camlon16_wsis
-        from dataset.wsi_dataset import WSIDataset
-        # from dataset.wsi_dataset import WSIDatasetLMDB
-        from conf.camlon16 import settings
+    #    from dataset.wsi_reader import camlon16_wsis
+    #    from dataset.wsi_dataset import WSIDataset
+    #    # from dataset.wsi_dataset import WSIDatasetLMDB
+       from conf.camlon16 import settings
 
-        if img_set == 'train':
-            direction = -1
-        else:
-            direction = 0
-        wsis = camlon16_wsis(img_set, direction=direction)
+        # if img_set == 'train':
+            # direction = -1
+        # else:
+            # direction = 0
+        # wsis = camlon16_wsis(img_set, direction=direction)
 
-        print(all)
-        if not all:
-            tmp = []
-            for wsi in wsis:
-                wsi.patch_level()
-                tmp.append(wsi)
-            wsis = tmp
+        # print(all)
+        # if not all:
+        #     tmp = []
+        #     for wsi in wsis:
+        #         wsi.patch_level()
+        #         tmp.append(wsi)
+        #     wsis = tmp
 
-        print('xxxxxx', )
-        dataset_cls = WSIDataset
+        # print('xxxxxx', )
+        # dataset_cls = WSIDataset
 
     # if dataset_name == 'cam16_map':
     #     from dataset.vit_lmdb import CAM16
@@ -662,44 +663,72 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_g
 
         # if num_gpus > 1:
         #     torch
+
     if img_set == 'train':
-        shuffle = True
+        # shuffle = True
         lmdb_path = settings.train_dirs['lmdb'][0]
         allow_repeat = True
     else:
-        shuffle = False
+        # shuffle = False
         lmdb_path = settings.test_dirs['lmdb'][0]
         allow_repeat = False
+        drop_last = False
 
-    if dist:
-        dataloader = DistWSIDataLoader(
-            lmdb_path=lmdb_path,
-            wsis=wsis,
-            # batch_size=17,
-            batch_size=batch_size,
-            num_gpus=num_gpus,
-            cls_type=dataset_cls,
-            num_workers=num_workers,
-            transforms=trans,
-            shuffle=shuffle,
-        )
+    from dataset.dataloader_simple import CAMLON16Dataset
 
-    else:
-        # print('?????')
-        print(WSIDataLoader)
-        dataloader = WSIDataLoader(
-            wsis,
-            shuffle=shuffle,
-            batch_size=batch_size,
-            cls_type=WSIDataset,
-            pin_memory=True,
-            num_workers=num_workers,
-            transforms=trans,
-            allow_repeat=allow_repeat,
-            # drop_last=True,
-            drop_last=drop_last,
-        )
+    # print(all, 'ccccccccccccccc')
+    dataset = CAMLON16Dataset(
+        data_set=img_set,
+        lmdb_path=lmdb_path,
+        batch_size=batch_size,
+        allow_reapt=allow_repeat,
+        drop_last=drop_last,
+        transforms=trans,
+        dist=dist,
+        all=all
+    )
+    #dataloader = torch.utils.data.DataLoader(
+    #    dataset,
+    #    batch_size=None,
+
+    #)
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=None,
+        shuffle=False, num_workers=num_workers,
+        persistent_workers=True,
+        pin_memory=True
+    )
+
+    # if dist:
+    #     dataloader = DistWSIDataLoader(
+    #         lmdb_path=lmdb_path,
+    #         wsis=wsis,
+    #         # batch_size=17,
+    #         batch_size=batch_size,
+    #         num_gpus=num_gpus,
+    #         cls_type=dataset_cls,
+    #         num_workers=num_workers,
+    #         transforms=trans,
+    #         shuffle=shuffle,
+    #     )
+
+    # else:
+    #     # print('?????')
+    #     print(WSIDataLoader)
+    #     dataloader = WSIDataLoader(
+    #         wsis,
+    #         shuffle=shuffle,
+    #         batch_size=batch_size,
+    #         cls_type=WSIDataset,
+    #         pin_memory=True,
+    #         num_workers=num_workers,
+    #         transforms=trans,
+    #         allow_repeat=allow_repeat,
+    #         # drop_last=True,
+    #         drop_last=drop_last,
+    #     )
 
 
-    print(dataloader)
+    # print(dataloader)
     return dataloader

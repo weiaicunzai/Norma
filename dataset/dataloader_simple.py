@@ -135,7 +135,9 @@ class WSIDatasetNaive(IterableDataset):
         with self.env.begin(write=False) as txn:
             img_stream = txn.get(patch_id.encode())
             img = np.frombuffer(img_stream, np.uint8)
+            # In the case of color images, the decoded images will have the channels stored in B G R order.
             img = cv2.imdecode(img, -1)  # most time is consum
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         data['img'] = img
         return data

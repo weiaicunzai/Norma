@@ -17,9 +17,11 @@ https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision
 """
 import math
 from functools import partial
+import os
 
 import torch
 import torch.nn as nn
+import warnings
 
 from .mil_head import Attention_Gated
 
@@ -287,7 +289,9 @@ class VisionTransformer(nn.Module):
         # print(x.shape, 'ccccccc')
         x = self.head(x)
 
-        return x
+        return x[:, 0]
+
+        # return x
         # if self.return_cls:
         #     return self.fc(x[:, 0])
         # else:
@@ -342,3 +346,39 @@ def vit_base(patch_size=16, **kwargs):
 # img = torch.Tensor(3, 3, 256, 256)
 # out = net(img)
 # print(out.shape)
+
+def get_vit256(pretrained_weights, device=torch.device('cuda:0')):
+    r"""
+    Builds ViT-256 Model.
+
+    Args:
+    - pretrained_weights (str): Path to ViT-256 Model Checkpoint.
+    - arch (str): Which model architecture.
+    - device (torch): Torch device to save model.
+
+    Returns:
+    - model256 (torch.nn): Initialized model.
+    """
+
+    checkpoint_key = 'teacher'
+    device = torch.device("cpu")
+    # model256 = vits.__dict__[arch](patch_size=16, num_classes=0)
+    model256 = vit_small(patch_size=16, num_classes=0)
+    for p in model256.parameters():
+        p.requires_grad = False
+    model256.eval()
+    model256.to(device)
+
+    if os.path.isfile(pretrained_weights):
+        state_dict = torch.load(pretrained_weights, map_location="cpu")
+        if checkpoint_key is not None and checkpoint_key in state_dict:
+            print(f"Take key {checkpoint_key} in provided checkpoint dict")
+            state_dict = state_dict[checkpoint_key]
+        # remove `module.` prefix
+        state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+        # remove `backbone.` prefix induced by multicrop wrapper
+        state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
+        msg = model256.load_state_dict(state_dict, strict=False)
+        print('Pretrained weights found at {} and loaded with msg: {}'.format(pretrained_weights, msg))
+
+    return model256

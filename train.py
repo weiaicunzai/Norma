@@ -160,9 +160,16 @@ def main(args):
     root_path = os.path.dirname(os.path.abspath(__file__))
     ckpt_path = os.path.join(
         root_path, args.ckpt_path, TIME_NOW)
+    print(ckpt_path)
+
+    if not os.path.exists(ckpt_path):
+        os.makedirs(ckpt_path)
     # log_dir = os.path.join(root_path, settings.LOG_FOLDER, args.prefix + '_' +settings.TIME_NOW)
     log_path = os.path.join(root_path, args.log_dir, TIME_NOW)
     print(log_path)
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+
     writer = SummaryWriter(log_dir=log_path)
 
     # train_dataloader = aa.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=16, num_workers=4)
@@ -268,22 +275,22 @@ def main(args):
             # continue
             # print(out.shape)
                         # if args.debug:
-            # with torch.no_grad():
-            #     # out.soft_max()
-            #     print(out.shape)
-            #     pred = out.softmax(dim=1).argmax(dim=-1).detach()
-            #     # print(pred)
-            #     #print('pred', pred)
-            #     #print('label', label)
-            #     print('iter_acc', (pred == label).sum() / pred.shape[0])
-            #     #mask = pred == label
-            #     #l1_mask = mask & (label == 1)
-            #     #l0_mask = mask & (label == 0)
-            #     l1_mask = (pred == 1) & (label == 1)
-            #     l0_mask = (pred == 0) & (label == 0)
-            #     print('label == 1, iter_acc', l1_mask.sum() / (label == 1).sum())
-            #     print('label == 0, iter_acc', l0_mask.sum() / (label == 0).sum())
-                #print('label == 0, iter_acc', l0_mask.sum() / pred.shape[0] * 2)
+            #with torch.no_grad():
+            #    # out.soft_max()
+            #    print(out.shape)
+            #    pred = out.softmax(dim=1).argmax(dim=-1).detach()
+            #    # print(pred)
+            #    #print('pred', pred)
+            #    #print('label', label)
+            #    print('iter_acc', (pred == label).sum() / pred.shape[0])
+            #    #mask = pred == label
+            #    #l1_mask = mask & (label == 1)
+            #    #l0_mask = mask & (label == 0)
+            #    l1_mask = (pred == 1) & (label == 1)
+            #    l0_mask = (pred == 0) & (label == 0)
+            #    print('label == 1, iter_acc', l1_mask.sum() / (label == 1).sum())
+            #    print('label == 0, iter_acc', l0_mask.sum() / (label == 0).sum())
+            #    #print('label == 0, iter_acc', l0_mask.sum() / pred.shape[0] * 2)
 
             loss = loss_fn(out, label)
             loss.backward()

@@ -14,6 +14,7 @@ import numpy as np
 
 import time
 import math
+import json
 
 from .wsi_reader import CAMLON16MixIn
 
@@ -239,3 +240,53 @@ class CAMLON16Dataset(WSIDatasetNaive, CAMLON16MixIn):
                 wsi.patch_level()
 
         return wsis
+
+
+class CAMLON16DatasetFeat(CAMLON16Dataset):
+    def __init__(self, data_set, lmdb_path, batch_size, seq_len, drop_last=False, allow_reapt=False, transforms=None, dist=None, all=True):
+        self.all = all
+        self.seq_len = seq_len
+        super().__init__(data_set, lmdb_path, batch_size, drop_last, allow_reapt, transforms, dist)
+        # print(self.all, 'cccccccccccccccccccccccccc')
+
+    def __iter__(self):
+        output = None
+
+        for data in iter(super()):
+            if output is None:
+                output = data
+            else:
+                output = torch.cat([output, data], dim=1)
+
+            if self.seq_len == output.shape[0]:
+                yield output
+
+
+    def read_img(self, data):
+
+        patch_id = data['patch_id']
+        with self.env.begin(write=False) as txn:
+            img_stream = txn.get(patch_id.encode())
+            feature_vector_list = json.loads(img_stream.decode())
+            feature_tensor = torch.tensor(feature_vector_list)
+            return feature_tensor
+
+    def cal_seq_len(self, wsis):
+        outputs = []
+
+        for idx in range(0, len(wsis), self.batch_size):
+
+            batch_wsi = wsis[idx : idx + self.batch_size]
+            max_len = max([wsi.num_patches for wsi in batch_wsi])
+
+            assert max_len > 0
+
+            reminder = max_len % self.seq_len
+            # if max_len % self.seq_len != 0:
+            if reminder != 0:
+                # reminder = max_len
+                max_len += self.seq_len - reminder
+
+            outputs.append(max_len)
+
+        return outputs

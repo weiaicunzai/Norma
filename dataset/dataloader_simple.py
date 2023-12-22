@@ -195,9 +195,9 @@ class WSIDatasetNaive(IterableDataset):
             for patch_idx in range(max_len):#104
 
                     outputs = []
-                    for x in batch_wsi:
+                    for wsi in batch_wsi:
 
-                        data = next(x)
+                        data = next(wsi)
 
                         if worker_info is not None:
                             if count % worker_info.num_workers != worker_info.id:
@@ -253,14 +253,25 @@ class CAMLON16DatasetFeat(CAMLON16Dataset):
         output = None
 
         for data in iter(super()):
-            if output is None:
-                output = data
-            else:
-                output = torch.cat([output, data], dim=1)
+            #if output is None:
+            #    output = data
+            #else:
+            #    output = torch.cat([output, data], dim=1)
+            for k, v in data.items():
+                if k == 'img':
+                    output = self.concat(data['img'], output)
 
             if self.seq_len == output.shape[0]:
-                yield output
+                data['img'] = output
+                yield data
 
+    def concat(self, input, tensor):
+        tensor.unsqueeze(dim=1)
+        if input is None:
+            input = tensor
+        else:
+            input = torch.cat([input, tensor], dim=1)
+        return input
 
     def read_img(self, data):
 

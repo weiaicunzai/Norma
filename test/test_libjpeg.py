@@ -151,12 +151,12 @@ from PIL import Image
 # print(count)
 
 
-# path = '/data/ssd1/by/CAMELYON16/training_json/tumor/patch_size_512_at_mag_20_patch_label/'
-# path = '/data/ssd1/by/CAMELYON16/testing/jsons/patch_size_512_at_mag_20_patch_label/'
+path = '/data/ssd1/by/CAMELYON16/training_json/tumor/patch_size_512_at_mag_20_patch_label/'
+path = '/data/ssd1/by/CAMELYON16/testing/jsons/patch_size_512_at_mag_20_patch_label/'
 
-# import json
-# import os
-# import glob
+import json
+import os
+import glob
 
 # for i in glob.iglob(os.path.join(path, '*.json')):
 #     # print(i)
@@ -181,13 +181,29 @@ from PIL import Image
 #     print(count / 1024, tumor, count)
 
 
-def aaa(max_len, seq_len):
-    reminder = max_len % seq_len
-    # assert max_len > 0
-    if reminder != 0:
-    # reminder = max_len
-        max_len += seq_len - reminder
-    return max_len
+# def aaa(max_len, seq_len):
+#     reminder = max_len % seq_len
+#     # assert max_len > 0
+#     if reminder != 0:
+#     # reminder = max_len
+#         max_len += seq_len - reminder
+#     return max_len
 
 
-print(aaa(0, 32))
+# print(aaa(0, 32))
+
+
+
+import time
+import torch
+
+
+tensor1 = torch.randn(64, 512, 384)
+tensor2 = torch.randn(64, 512, 384)
+
+
+t1 = time.time()
+for i in range(1000):
+    tensor1 == tensor2
+
+print((time.time() - t1) / 1000)

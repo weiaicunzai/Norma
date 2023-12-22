@@ -1,3 +1,4 @@
+import pickle
 import random
 import warnings
 # from itertools import cycle
@@ -249,10 +250,13 @@ class CAMLON16DatasetFeat(CAMLON16Dataset):
         super().__init__(data_set, lmdb_path, batch_size, drop_last, allow_reapt, transforms, dist)
         # print(self.all, 'cccccccccccccccccccccccccc')
 
+    def concat(self, output, data):
+
     def __iter__(self):
         output = None
 
-        for data in iter(super()):
+        for data in iter(super().__iter__()):
+        # for data in iter(super()):
             #if output is None:
             #    output = data
             #else:
@@ -264,6 +268,21 @@ class CAMLON16DatasetFeat(CAMLON16Dataset):
             if self.seq_len == output.shape[0]:
                 data['img'] = output
                 yield data
+                output=None
+
+        # for data in iter(super().__iter__()):
+        # # for data in super():
+        #     img = data['img'].unsqueeze(dim=1)
+        #     if output is None:
+        #         output = img
+        #         #output=output.unsqueeze(dim=1)
+        #     else:
+        #         output = torch.cat([output, img], dim=1)
+            # print("ok")
+
+            # if self.seq_len == output.shape[1]:
+            #     yield output
+            #     output=None
 
     def concat(self, input, tensor):
         tensor.unsqueeze(dim=1)
@@ -278,10 +297,11 @@ class CAMLON16DatasetFeat(CAMLON16Dataset):
         patch_id = data['patch_id']
         with self.env.begin(write=False) as txn:
             img_stream = txn.get(patch_id.encode())
+            # print(img_stream)
             feature_vector_list = json.loads(img_stream.decode())
             feature_tensor = torch.tensor(feature_vector_list)
-            return feature_tensor
-
+            data['img'] = feature_tensor
+        return data
     def cal_seq_len(self, wsis):
         outputs = []
 

@@ -30,17 +30,21 @@ dataloader = torch.utils.data.DataLoader(dataset, num_workers=4, batch_size=None
 
 
 # with cProfile.Profile() as pr:
-# for data in dataset:
+from viztracer import VizTracer
+with VizTracer(output_file="optional.json") as tracer:
+
+  for data in dataset:
 # = -
-for iter, data in enumerate(dataloader):
+# for iter, data in enumerate(dataloader):
 
     # print( data['img'].shape)
-    print(data.keys())
-    count=count + data['img'].shape[0]
-    print(data['img'].shape, '11111')
-    print((t1 - time.time())  / (iter + 1e-8))
-    # if count > :
-        # break
+    # print(data.keys())
+    # count=count + data['img'].shape[0]
+    count += 1
+    # print(data['img'].shape, '11111')
+    # print((t1 - time.time())  / (iter + 1e-8))
+    if count > 30:
+        break
 
     # ps = pstats.Stats(pr).sort_stats(sortby)
     # ps.print_stats()

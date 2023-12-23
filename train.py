@@ -66,6 +66,7 @@ def get_args_parser():
     # parser.add_argument('--all', action='store_true', help='if all, then return all the wsi patches in the wsi, otherwise return patches with the same label as the wsi-level label')
     parser.add_argument('--alpha', default=-0.1, type=float)
     parser.add_argument('--debug', action='store_true', help='if print debug log')
+    parser.add_argument('--seq_len', default=256, type=int)
 
 
                 # if not args.all:
@@ -175,10 +176,10 @@ def main(args):
     # train_dataloader = aa.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=16, num_workers=4)
     # print(dist.get_world_size())
     # train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=args.batch_size, num_workers=4, num_gpus=dist.get_world_size())
-    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=dist, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False)
+    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=dist, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False, seq_len=args.seq_len)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=64, num_workers=4)
-    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=dist, batch_size=128, num_workers=4, all=args.all, drop_last=False)
+    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=dist, batch_size=128, num_workers=4, all=args.all, drop_last=False, seq_len=args.seq_len)
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
     # val_dataloader = train_dataloader

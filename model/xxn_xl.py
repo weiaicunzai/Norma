@@ -19,12 +19,49 @@ class CustomTransformerXL(TransfoXLModel):
         # and outputs `num_classes` predictions
         self.classifier = torch.nn.Linear(config.d_model, num_classes)
         # Define a CNN as feature extractor (this is just a placeholder)
+        # self.feature_extractor = torch.nn.Sequential(
+        #     torch.nn.Conv2d(3, 64, 3, 1, 1),
+        #     torch.nn.ReLU(),
+        #     torch.nn.Flatten(),
+        #     # Add more layers as required
+        # )
         self.feature_extractor = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 64, 3, 1, 1),
-            torch.nn.ReLU(),
             torch.nn.Flatten(),
-            # Add more layers as required
+            torch.nn.Linear(3 * 256 * 256, 1024),  # Adjust the size as needed
+            torch.nn.ReLU(),
+            # Add more layers if required
         )
+
+    def forward(self, img, mem, is_last):
+        # Assume feature_extractor is a CNN that converts image to a token-like sequence
+        features = self.feature_extractor(img)  # Convert image batch to sequence-like data
+        # input_ids = features.squeeze()  # Flatten the features if necessary
+        #
+        # # Ensure input_ids is a 2D tensor with size [sequence length, batch size]
+        # if input_ids.ndim == 3:
+        #     input_ids = input_ids.view(input_ids.size(0), -1)  # [seq_len, batch_size*feature_size]
+        #
+        # mems = mem.get('mems', None)
+        #
+        # outputs = super().forward(input_ids, mems=mems)
+        input_ids = features.long()  # Convert to long type
+
+        # Ensure input_ids is a 2D tensor with size [sequence length, batch size]
+        if input_ids.ndim == 3:
+            input_ids = input_ids.view(input_ids.size(0), -1)
+
+        mems = mem.get('mems', None)
+
+        outputs = super().forward(input_ids, mems=mems)
+
+        # Update the memory with the new mems if not the last segment
+        if not is_last.all():
+            mem['mems'] = outputs['mems']
+
+        # Apply the classifier to the last hidden state
+        logits = self.classifier(outputs.last_hidden_state) if self.classifier is not None else outputs.last_hidden_state
+
+        return logits, mem
     # def forward(self, img, mem, is_last):
     #     input_ids = img  # Ensure img is appropriately preprocessed and tokenized
     #     mems = mem.get('mems', None)
@@ -40,28 +77,6 @@ class CustomTransformerXL(TransfoXLModel):
     #         outputs.last_hidden_state) if self.classifier is not None else outputs.last_hidden_state
     #
     #     return logits, mem
-    def forward(self, img, mem, is_last):
-        # Assume feature_extractor is a CNN that converts image to a token-like sequence
-        features = self.feature_extractor(img)  # Convert image batch to sequence-like data
-        input_ids = features.squeeze()  # Flatten the features if necessary
-
-        # Ensure input_ids is a 2D tensor with size [sequence length, batch size]
-        if input_ids.ndim == 3:
-            input_ids = input_ids.view(input_ids.size(0), -1)  # [seq_len, batch_size*feature_size]
-
-        mems = mem.get('mems', None)
-
-        outputs = super().forward(input_ids, mems=mems)
-
-        # Update the memory with the new mems if not the last segment
-        if not is_last.all():
-            mem['mems'] = outputs['mems']
-
-        # Apply the classifier to the last hidden state
-        logits = self.classifier(outputs.last_hidden_state) if self.classifier is not None else outputs.last_hidden_state
-
-        return logits, mem
-
 # # Usage:
 # config = TransfoXLConfig()
 # # Add any other configuration parameters required for your task

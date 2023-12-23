@@ -361,10 +361,10 @@ class CAMLON16DatasetFeat(CAMLON16Dataset):
         data = {}
         is_last = 0
         label = None
+        feats = []
         for data in data_list:
 
             patch_id = data['patch_id']
-            feats = []
 
             # if data['is_last'] == 1:
                 # is_last = 1

@@ -37,7 +37,7 @@ for iter, data in enumerate(dataloader):
     # print( data['img'].shape)
     print(data.keys())
     count=count + data['img'].shape[0]
-    # print(data['img'].shape, '11111')
+    print(data['img'].shape, '11111')
     print((t1 - time.time())  / (iter + 1e-8))
     # if count > :
         # break

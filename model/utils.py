@@ -1072,3 +1072,8 @@ def build_model(model_name, num_classes, dis_mem_len=512, alpha=-0.1):
         from .vit import vit_base
         net = vit_base(n_classes=num_classes)
         return net
+
+    if model_name=='transformerXL':
+        from .xxn_xl import CustomTransformerXL
+        net=CustomTransformerXL(num_classes,dis_mem_len, alpha)
+        return net

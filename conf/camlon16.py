@@ -30,7 +30,8 @@ train_dirs = {
     'wsis': [os.path.join(_dataset_path, 'training/normal/'), os.path.join(_dataset_path, 'training/tumor/')],
     # 'jsons': [os.path.join(_dataset_path, 'training_json/normal/patch_size_512_at_mag_5'), os.path.join(_dataset_path, 'training_json/tumor/patch_size_512_at_mag_5/')]
     'jsons': [os.path.join(_dataset_path, 'training_json/normal/patch_size_512_at_mag_20'), os.path.join(_dataset_path, 'training_json/tumor/patch_size_512_at_mag_20/')],
-    'lmdb' : [os.path.join(_dataset_path, 'training_lmdb')],
+    # 'lmdb' : [os.path.join(_dataset_path, 'training_lmdb')],
+    'lmdb' : [os.path.join(_dataset_path, 'training_feat')],
     # 'lmdb' : ['/dev/shm/by/training_lmdb/'],
     'patch_level': [os.path.join(_dataset_path, 'training_json/tumor/patch_size_512_at_mag_20_patch_label')],
     'anno': [os.path.join(_dataset_path, 'training/lesion_anno')]
@@ -48,7 +49,8 @@ test_dirs = {
     'wsis': [os.path.join(_dataset_path, 'testing/images/')],
     # 'jsons' : [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_5/')]
     'jsons' : [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_20/')],
-    'lmdb' : [os.path.join(_dataset_path, 'testing_lmdb/')],
+    # 'lmdb' : [os.path.join(_dataset_path, 'testing_lmdb/')],
+    'lmdb' : [os.path.join(_dataset_path, 'testing_feat/')],
     # 'lmdb' : ['/dev/shm/by/testing_lmdb/'],
     'patch_level': [os.path.join(_dataset_path, 'testing/jsons/patch_size_512_at_mag_20_patch_label')],
     'anno': [os.path.join(_dataset_path, 'testing/lesion')]

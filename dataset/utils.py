@@ -619,7 +619,7 @@ def build_transforms(img_set):
 
 
 # def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None, all=True, drop_last=True):
-def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=True, drop_last=True):
+def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=True, drop_last=True, seq_len=256):
     # assert isinstance(dist, bool)
     assert img_set in ['val', 'train', 'test']
 
@@ -674,10 +674,11 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=T
         allow_repeat = False
         drop_last = False
 
-    from dataset.dataloader_simple import CAMLON16Dataset
+    from dataset.dataloader_simple import CAMLON16Dataset, CAMLON16DatasetFeat
 
     # print(all, 'ccccccccccccccc')
-    dataset = CAMLON16Dataset(
+    # dataset = CAMLON16Dataset(
+    dataset = CAMLON16DatasetFeat(
         data_set=img_set,
         lmdb_path=lmdb_path,
         batch_size=batch_size,
@@ -685,7 +686,8 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=T
         drop_last=drop_last,
         transforms=trans,
         dist=dist,
-        all=all
+        all=all,
+        seq_len=seq_len
     )
     #dataloader = torch.utils.data.DataLoader(
     #    dataset,

@@ -151,12 +151,12 @@ from PIL import Image
 # print(count)
 
 
-# path = '/data/ssd1/by/CAMELYON16/training_json/tumor/patch_size_512_at_mag_20_patch_label/'
-# path = '/data/ssd1/by/CAMELYON16/testing/jsons/patch_size_512_at_mag_20_patch_label/'
+path = '/data/ssd1/by/CAMELYON16/training_json/tumor/patch_size_512_at_mag_20_patch_label/'
+path = '/data/ssd1/by/CAMELYON16/testing/jsons/patch_size_512_at_mag_20_patch_label/'
 
-# import json
-# import os
-# import glob
+import json
+import os
+import glob
 
 # for i in glob.iglob(os.path.join(path, '*.json')):
 #     # print(i)
@@ -181,13 +181,85 @@ from PIL import Image
 #     print(count / 1024, tumor, count)
 
 
-def aaa(max_len, seq_len):
-    reminder = max_len % seq_len
-    # assert max_len > 0
-    if reminder != 0:
-    # reminder = max_len
-        max_len += seq_len - reminder
-    return max_len
+# def aaa(max_len, seq_len):
+#     reminder = max_len % seq_len
+#     # assert max_len > 0
+#     if reminder != 0:
+#     # reminder = max_len
+#         max_len += seq_len - reminder
+#     return max_len
 
 
-print(aaa(0, 32))
+# print(aaa(0, 32))
+
+
+
+# import time
+# import torch
+# import random
+# import struct
+
+
+# # tensor1 = torch.randn(64, 512, 384)
+# # tensor2 = torch.randn(64, 512, 384)
+
+# test1 = [random.random() for _ in range(384)]
+# test2 = [random.random() for _ in range(384)]
+
+# times = 1000
+
+# # for i in test1:
+# d = struct.pack('384f', *test1)
+
+# t1 = time.time()
+# for i in range(times):
+#     # tensor1 == tensor2
+#     # struct.pack('f', )
+#     # print(d )
+#     c = struct.unpack_from('384f', d)
+#     # print(c)
+
+# c = (time.time() - t1) / times
+# print(c)
+# import json
+# str_test1 = json.dumps(test1)
+
+# t1 = time.time()
+# for i in range(times):
+#     json.loads(str_test1)
+
+
+# d = (time.time() - t1) / times
+# print(d)
+
+# print(d / c)
+
+import lmdb
+import struct
+lmdb_path = '/data/ssd1/by/CAMELYON16/testing_feat'
+
+env = lmdb.open(lmdb_path, readonly=True)
+with env.begin(write=False) as txn:
+    # with txn.cursor() as curs:
+        # print()'key is:', curs.get('key'))
+
+    # length = txn.stat()['entries']
+    #keys = list(txn.cursor().iternext(values=False))
+    #for key in keys:
+    #    value = txn.get(key)
+    #    # print(len(value))
+    #    d = struct.unpack('384f', value)
+    #    # print(d)
+    #    print(len(d))
+    # test_036.tif_60416_83968_1_512_512
+    print(env.path())
+    stream = txn.get('test_036.tif_60416_83968_1_512_512'.encode())
+    print(len(stream))
+    d = struct.unpack('384f', stream)
+    print(len(d))
+
+
+
+    #with txn.cursor() as curs:
+    #    # do stuff
+    #    print('key is:', curs.get('key'))

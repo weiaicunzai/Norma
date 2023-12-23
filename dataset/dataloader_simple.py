@@ -7,6 +7,7 @@ from torch.utils.data import IterableDataset, default_collate
 import torch
 import cv2
 from torch.utils.data import default_collate
+import msgspec
 # default_collate
 
 from PIL import Image
@@ -15,7 +16,8 @@ import numpy as np
 
 import time
 import math
-import json
+import struct
+# import json
 
 from .wsi_reader import CAMLON16MixIn
 
@@ -196,9 +198,9 @@ class WSIDatasetNaive(IterableDataset):
             for patch_idx in range(max_len):#104
 
                     outputs = []
-                    for x in batch_wsi:
+                    for wsi in batch_wsi:
 
-                        data = next(x)
+                        data = next(wsi)
 
                         if worker_info is not None:
                             if count % worker_info.num_workers != worker_info.id:
@@ -250,36 +252,142 @@ class CAMLON16DatasetFeat(CAMLON16Dataset):
         super().__init__(data_set, lmdb_path, batch_size, drop_last, allow_reapt, transforms, dist)
         # print(self.all, 'cccccccccccccccccccccccccc')
 
-    def concat(self, output, data):
+    # def concat(self, output, data):
+    # def __iter__(self):
+    # def flatten(self, outputs):
+    #     data = {}
+    #     for sample in outputs:
+    #         # print(sample)
+
 
     def __iter__(self):
-        output = None
 
-        for data in iter(super().__iter__()):
-        # for data in super():
-            img = data['img'].unsqueeze(dim=1)
-            if output is None:
-                output = img
-                #output=output.unsqueeze(dim=1)
-            else:
-                output = torch.cat([output, img], dim=1)
-            # print("ok")
+        worker_info = torch.utils.data.get_worker_info()
 
-            if self.seq_len == output.shape[1]:
-                yield output
-                output=None
+        # create a new list to avoid change the self.orig_wsis
+        # during each epoch
+        wsis = []
+        for wsi in self.orig_wsis:
+            wsis.append(wsi)
+
+        wsis = self.shuffle(wsis)
+        wsis = self.split_wsis(wsis) # used for ddp training
+        wsis = self.orgnize_wsis(wsis)
+        global_seq_len = self.cal_seq_len(wsis)
+
+        if self.data_set != 'train':
+            wsis = self.set_direction(wsis, direction=0)
+            if self.drop_last:
+                raise ValueError('during inference, the drop_last should not be set to true')
+        else:
+            wsis = self.set_random_direction(wsis)
+
+        count = 0
+        for idx in range(0, len(wsis), self.batch_size):#0
+
+            # add seeds here to avoid different seed value for
+            # different workers if we set seed += 1024 at the
+            # end of each data = next(x) loop (count might not
+            # be divided by each )
+            self.seed += 1024
+
+            batch_wsi = wsis[idx : idx + self.batch_size]
+
+            assert len(batch_wsi) == self.batch_size
+
+            batch_wsi = [self.cycle(x) for x in batch_wsi]
+
+            max_len_idx = idx // self.batch_size
+
+            if not global_seq_len[max_len_idx]:
+                warnings.warn('max batch len equals 0')
+                continue
+
+            max_len = global_seq_len[max_len_idx]
+
+            # if wsi len is not divisible by num_workers,
+            # the last few elements will
+            # change the order of reading next round
+            # set a global counter to eliminate this issue
+            for patch_idx in range(max_len):#104
+
+                    outputs = []
+                    for wsi in batch_wsi:
+
+                        # for _ in
+                        # t1 = time.time()
+                        data_list = [next(wsi) for _ in range(self.seq_len)]
+                        # print(time.time() - t1)
+
+                        if worker_info is not None:
+                            if count % worker_info.num_workers != worker_info.id:
+                                continue
+
+                            #data['worker_id'] = worker_info.id
+                            #data['count'] = self.count
+                            #data['patch_idx'] = patch_idx
+                            #data['seed'] = tmp_seed
+                            # data['dir'] = tmp_dircts
+                        data = self.read_img(data_list)
+
+                        if patch_idx < max_len - 1:
+                            data['is_last'] = 0
+                        else:
+                            data['is_last'] = 1
+
+                        outputs.append(data)
+
+                        # if self.trans is not None:
+                            # data['img'] = self.trans(image=data['img'])['image'] # A
+
+                    count += 1
+
+                    if outputs:
+                        # outputs
+                        # print(outputs[0]['img'].shape)
+                        yield default_collate(outputs)
 
 
-    def read_img(self, data):
+    def concat(self, input, tensor):
+        tensor = tensor.unsqueeze(dim=1)
+        if input is None:
+            input = tensor
+        else:
+            input = torch.cat([input, tensor], dim=1)
+        return input
 
-        patch_id = data['patch_id']
-        with self.env.begin(write=False) as txn:
-            img_stream = txn.get(patch_id.encode())
-            # print(img_stream)
-            feature_vector_list = json.loads(img_stream.decode())
-            feature_tensor = torch.tensor(feature_vector_list)
-            data['img'] = feature_tensor
+    def read_img(self, data_list):
+
+        data = {}
+        is_last = 0
+        label = None
+        for data in data_list:
+
+            patch_id = data['patch_id']
+            feats = []
+
+            # if data['is_last'] == 1:
+                # is_last = 1
+
+            if label is None:
+                label = data['label']
+
+            # print(label, data['label'])
+            # print(data.keys())
+            assert label == data['label']
+
+            with self.env.begin(write=False) as txn:
+               img_stream = txn.get(patch_id.encode())
+               feature_vector_list = struct.unpack('384f', img_stream)
+               feats.append(feature_vector_list)
+
+
+        data['is_last'] = is_last
+        # data['img'] = torch.tensor(feats)
+        data['img'] = torch.tensor(feats)
+        data['label'] = label
         return data
+
     def cal_seq_len(self, wsis):
         outputs = []
 

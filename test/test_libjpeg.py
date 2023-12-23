@@ -194,16 +194,72 @@ import glob
 
 
 
-import time
-import torch
+# import time
+# import torch
+# import random
+# import struct
 
 
-tensor1 = torch.randn(64, 512, 384)
-tensor2 = torch.randn(64, 512, 384)
+# # tensor1 = torch.randn(64, 512, 384)
+# # tensor2 = torch.randn(64, 512, 384)
+
+# test1 = [random.random() for _ in range(384)]
+# test2 = [random.random() for _ in range(384)]
+
+# times = 1000
+
+# # for i in test1:
+# d = struct.pack('384f', *test1)
+
+# t1 = time.time()
+# for i in range(times):
+#     # tensor1 == tensor2
+#     # struct.pack('f', )
+#     # print(d )
+#     c = struct.unpack_from('384f', d)
+#     # print(c)
+
+# c = (time.time() - t1) / times
+# print(c)
+# import json
+# str_test1 = json.dumps(test1)
+
+# t1 = time.time()
+# for i in range(times):
+#     json.loads(str_test1)
 
 
-t1 = time.time()
-for i in range(1000):
-    tensor1 == tensor2
+# d = (time.time() - t1) / times
+# print(d)
 
-print((time.time() - t1) / 1000)
+# print(d / c)
+
+import lmdb
+import struct
+lmdb_path = '/data/ssd1/by/CAMELYON16/testing_feat'
+
+env = lmdb.open(lmdb_path, readonly=True)
+with env.begin(write=False) as txn:
+    # with txn.cursor() as curs:
+        # print()'key is:', curs.get('key'))
+
+    # length = txn.stat()['entries']
+    #keys = list(txn.cursor().iternext(values=False))
+    #for key in keys:
+    #    value = txn.get(key)
+    #    # print(len(value))
+    #    d = struct.unpack('384f', value)
+    #    # print(d)
+    #    print(len(d))
+    # test_036.tif_60416_83968_1_512_512
+    print(env.path())
+    stream = txn.get('test_036.tif_60416_83968_1_512_512'.encode())
+    print(len(stream))
+    d = struct.unpack('384f', stream)
+    print(len(d))
+
+
+
+    #with txn.cursor() as curs:
+    #    # do stuff
+    #    print('key is:', curs.get('key'))

@@ -179,13 +179,13 @@ def camlon16_wsis(data_set, direction=-1):
                     continue
 
                 print(json_path, count)
-                wsi = WSILMDB(
-                # wsi = WSIJSON(
+                # wsi = WSILMDB(
+                wsi = WSIJSON(
                     # filename['wsi'],
                     # wsi_path,
                     # mask_path(wsi_path),
                     json_path,
-                    env=env,
+                    # env=env,
                     # patch_size=512,
                     # at_mag=5,
                     # random_rotate=True,

@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 
 sys.path.append(os.getcwd())
 import glob
@@ -14,12 +15,12 @@ import numpy as np
 import openslide
 
 # from dataset.utils import  CAMLON16Lable, BRACLabel
-from conf.camlon16 import settings as cam16_settings
-from conf.brac import settings as brac_settings
+# from conf.camlon16 import settings as cam16_settings
+# from conf.brac import settings as brac_settings
 
 class MaskConverter:
     # def __init__(self, wsi_path, mask_path, patch_size, at_mag=20, random_rotate=False, fg_thresh=0.7):
-    def __init__(self, wsi_path, mask_path, patch_size, label_fn, at_mag=20, random_rotate=False, fg_thresh=0.33):
+    def __init__(self, wsi_path, mask_path, patch_size, at_mag=20, random_rotate=False, fg_thresh=0.33):
 
         """at_mag: extract patches at magnification xxx"""
 
@@ -56,13 +57,13 @@ class MaskConverter:
 
         self.num_patches = self.cal_num_patches()
 
-        self.label = label_fn(wsi_path)
+        # self.label = label_fn(wsi_path)
 
         # elif 'normal' in wsi_path:
         #     self.label = 1
         # else:
         #     raise ValueError('wrong value')
-        self.wsi_name = os.path.basename(wsi_path)
+        # self.wsi_name = os.path.basename(wsi_path)
 
     # @property
     def get_kernel_size(self):
@@ -391,20 +392,23 @@ def get_real_mag(wsi_path, at_mag):
     return real_mag, level_0_magnification
 
 
-def write_single_json(wsi_path, dest_dir, at_mag=20, patch_size=256):
+def write_single_json(slide_id, label, settings, at_mag=20, patch_size=256):
     # sub_folder =
     sub_folder = 'patch_size_{}_at_mag_{}'.format(int(patch_size), int(at_mag))
-    label_fn = brac_settings.label_fn
+    # label_fn = brac_settings.label_fn
 
     res = {
 
     }
 
-    res['filename'] = os.path.basename(wsi_path)
-    res['label'] = label_fn(wsi_path)
+    # res['filename'] = os.path.basename(wsi_path)
+    res['filename'] = slide_id
+    # res['label'] = label_fn(wsi_path)
+    res['label'] = label
     res['coords'] = []
     # print(label_fn())
     # wsi = openslide.OpenSlide(wsi_path)
+    wsi_path = os.path.join(settings.wsi_dir, slide_id)
     real_mag, level_0_mag = get_real_mag(wsi_path=wsi_path, at_mag=at_mag)
     # print('real_mag', real_mag)
 
@@ -416,7 +420,7 @@ def write_single_json(wsi_path, dest_dir, at_mag=20, patch_size=256):
 
     # wsi = openslide.OpenSlide(wsi_path)
     # wsi = MaskConverter(wsi_path, mask_path(wsi_path), patch_size=patch_size, at_mag=at_mag, random_rotate=True, label_fn=label_fn)
-    wsi = MaskConverter(wsi_path, mask_path_brac(wsi_path), patch_size=patch_size, at_mag=at_mag, random_rotate=True, label_fn=label_fn)
+    wsi = MaskConverter(wsi_path, mask_path_brac(wsi_path), patch_size=patch_size, at_mag=at_mag, random_rotate=True)
     # wsi.construct_random_grids_m(5)
     # wi = WSI(wsi_path, mask_path, patch_size=512, at_mag=5, random_rotate=True, label_fn=label_fn)
     # wi = WSI(wsi_path, mask_path, patch_size=512, at_mag=5, random_rotate=True, label_fn=label_fn)
@@ -427,10 +431,9 @@ def write_single_json(wsi_path, dest_dir, at_mag=20, patch_size=256):
     # a = wsi.wsi.read_region((0, 0), 6, level_dim).convert('RGB')
     # a.save('tmp1/org.jpg')
 
-    print('..................')
+    # print('..................')
     # print(wsi.cal_num_patches())
     # print(wsi.is_last)
-    print('the orig mag is {}, extracting {} patches at {} with patch_size {} from {}'.format(level_0_mag, wsi.cal_num_patches(), at_mag, patch_size, wsi_path))
     # for idx, out in enumerate(cycle(wsi)):
     start = time.time()
     # count = 0
@@ -460,17 +463,22 @@ def write_single_json(wsi_path, dest_dir, at_mag=20, patch_size=256):
     # sub_folder = 'patch_size_{}_at_mag_{}'.format(int(patch_size), int(at_mag))
     # sub_folder = os.path.join('json')
 
+    dest_dir = settings.json_dir
     if not os.path.exists(os.path.join(dest_dir, sub_folder)):
         os.makedirs(os.path.join(dest_dir, sub_folder))
         # print(os.path.join(dest_dir, sub_folder, json_filename))
 
-    print(os.path.join(dest_dir, sub_folder, json_filename))
-    end = time.time()
-    print((end - start))
-    with open(os.path.join(dest_dir, sub_folder, json_filename), 'w') as f:
+    # print(os.path.join(dest_dir, sub_folder, json_filename))
+    # print((end - start))
+    json_save_path = os.path.join(dest_dir, sub_folder, json_filename)
+    # with open(os.path.join(dest_dir, sub_folder, json_filename), 'w') as f:
+    with open(json_save_path, 'w') as f:
         # f.write(res, f)
         json.dump(res, f)
 
+    end = time.time()
+    print('the orig mag is {}, extracting {} patches at {} with patch_size {} from {}, using time {}, writing to {}'.format(
+        level_0_mag, wsi.cal_num_patches(), at_mag, patch_size, wsi_path, end - start, json_save_path))
 
 
 
@@ -557,17 +565,19 @@ def write_json(wsi_dir, dest_dir, patch_size, at_mag):
 
 
 
-def get_brac_filenames(csv_path):
+# def get_brac_filenames(csv_path):
+def get_filenames(settings):
 
     # with open(csv_path, 'r') as csv_file:
     # brac_settings.train_dirs['wsi']
-    wsi_dir =  brac_settings.train_dirs['wsis'][0]
+    # wsi_dir =  brac_settings.train_dirs['wsis'][0]
+    csv_path = settings.file_list_csv
     with open(csv_path, newline='') as csvfile:
         spamreader = csv.DictReader(csvfile)
         # print(list(spamreader))
         # print(csv_file)
         for row in spamreader:
-            yield os.path.join(wsi_dir, row['slide_id'])
+            yield row['slide_id'], row['label']
                 # row = row[0].split(',')
                 # print(row)
                 # if row[1] == 'Normal':
@@ -580,6 +590,11 @@ def get_brac_filenames(csv_path):
 
 
 
+def get_args_parser():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--dataset', required=True, default=None)
+
+    return parser.parse_args()
 
 
 
@@ -637,7 +652,15 @@ if __name__ == '__main__':
 #
 
     # write_single_json()
+    args = get_args_parser()
+    if args.dataset == 'brac':
+        from conf.brac import settings
+    else:
+        raise ValueError('wrong data')
 
+    # csv_file = settings.file_list_csv
+    # with
     pool = mp.Pool(processes=4) # computation bound operation
-    pool.map(partial(write_single_json, dest_dir=dest_dir), get_brac_filenames(path))
+    # pool.map(partial(write_single_json, dest_dir=dest_dir), get_brac_filenames(path))
+    pool.starmap(partial(write_single_json, settings=settings), get_filenames(settings))
     pool.close()

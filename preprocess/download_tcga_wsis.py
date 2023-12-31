@@ -1,9 +1,13 @@
 import argparse
+import csv
 import json
 import multiprocessing
 import os
 import requests
+import sys
 from functools import partial
+
+sys.path.append(os.getcwd())
 
 
 def get_uuid(filename):
@@ -29,8 +33,12 @@ def get_uuid(filename):
     return res['data']['hits'][0]['id']
 
 def get_filename(settings):
-    for slide_id, _, _ in settings.file_list():
-        yield os.path.basename(slide_id)
+    csv_file = settings.file_list_csv
+    with open(csv_file, 'r') as f:
+        for row in csv.DictReader(f):
+            yield row['slide_id']
+    # for record in settings.file_list():
+        # yield os.path.basename(record['slide_id'])
 
 def write_single_file(filename, save_dir):
     uuid = get_uuid(filename)
@@ -51,7 +59,7 @@ if '__main__' == __name__:
     if args.dataset == 'brac':
         from conf.brac import settings
 
-    downloader = partial(write_single_file, save_dir=settings.wsis_dir)
+    downloader = partial(write_single_file, save_dir=settings.wsi_dir)
     pool = multiprocessing.Pool(processes=100)
     pool.map(downloader, get_filename(settings))
     pool.join()

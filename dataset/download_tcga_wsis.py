@@ -3,6 +3,7 @@ import json
 import multiprocessing
 import os
 import requests
+from functools import partial
 
 
 def get_uuid(filename):
@@ -27,13 +28,11 @@ def get_uuid(filename):
 
     return res['data']['hits'][0]['id']
 
-def get_filename(dataset):
-    if dataset == 'brac':
-        from conf.brac import settings
-        for slide_id, _, _ in settings.file_list():
-            yield os.path.basename(slide_id)
+def get_filename(settings):
+    for slide_id, _, _ in settings.file_list():
+        yield os.path.basename(slide_id)
 
-def write_single_file(filename, save_dir='/data/smb/syh/WSI_cls/TCGA_BRCA/img'):
+def write_single_file(filename, save_dir):
     uuid = get_uuid(filename)
     save_path = os.path.join(save_dir, filename)
     data_endpt = "https://api.gdc.cancer.gov/data/{}".format(uuid)
@@ -49,5 +48,10 @@ def get_args_parser():
 if '__main__' == __name__:
 
     args = get_args_parser()
+    if args.dataset == 'brac':
+        from conf.brac import settings
+
+    downloader = partial(write_single_file, save_dir=settings.wsis_dir)
     pool = multiprocessing.Pool(processes=100)
-    pool.map(write_single_file, get_filename(args.dataset))
+    pool.map(downloader, get_filename(settings))
+    pool.join()

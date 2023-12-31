@@ -33,15 +33,15 @@ class MaskConverter:
 
         self.patch_size = int(patch_size)  # extracted patch resolution at "at_mag"
         self.at_mag = int(at_mag)
-        self.random_rotate = random_rotate
+        # self.random_rotate = random_rotate
 
         self.kernel_size = self.get_kernel_size()
 
 
-        if self.random_rotate == False:
-            self.construct_grids_m()
-        else:
-            self.construct_random_grids_m(0)
+        # if self.random_rotate == False:
+        #     self.construct_grids_m()
+        # else:
+        #     self.construct_random_grids_m(0)
 
         # if current patch is the last patch
         self.fg_thresh = fg_thresh
@@ -277,8 +277,7 @@ def get_real_mag(wsi_path, at_mag):
     return real_mag, level_0_magnification
 
 
-def write_single_json(slide_id, label, settings, at_mag=20, patch_size=256):
-    sub_folder = 'patch_size_{}_at_mag_{}'.format(int(patch_size), int(at_mag))
+def write_single_json(slide_id, label, settings):
 
     res = {
 
@@ -288,15 +287,15 @@ def write_single_json(slide_id, label, settings, at_mag=20, patch_size=256):
     res['coords'] = []
 
     wsi_path = os.path.join(settings.wsi_dir, slide_id)
-    real_mag, level_0_mag = get_real_mag(wsi_path=wsi_path, at_mag=at_mag)
+    real_mag, level_0_mag = get_real_mag(wsi_path=wsi_path, at_mag=settings.mag)
 
-    assert real_mag >= at_mag
+    assert real_mag >= settings.mag
 
     # if given mag is missing, extracted from larger mag
-    patch_size = int((real_mag / at_mag) * patch_size)
+    patch_size = int((real_mag / settings.mag) * settings.patch_size)
     at_mag = real_mag
 
-    wsi = MaskConverter(wsi_path, mask_path_brac(wsi_path), patch_size=patch_size, at_mag=at_mag, random_rotate=True)
+    wsi = MaskConverter(wsi_path, mask_path_brac(wsi_path), patch_size=patch_size, at_mag=at_mag)
 
     start = time.time()
     for i in range(8):
@@ -316,10 +315,11 @@ def write_single_json(slide_id, label, settings, at_mag=20, patch_size=256):
     json_filename = os.path.splitext(wsi_filename)[0] + '.json'
 
     dest_dir = settings.json_dir
-    if not os.path.exists(os.path.join(dest_dir, sub_folder)):
-        os.makedirs(os.path.join(dest_dir, sub_folder))
 
-    json_save_path = os.path.join(dest_dir, sub_folder, json_filename)
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+
+    json_save_path = os.path.join(dest_dir, json_filename)
     with open(json_save_path, 'w') as f:
         json.dump(res, f)
 

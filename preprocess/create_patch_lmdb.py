@@ -33,7 +33,7 @@ import openslide
 
 
 # def write_single_wsi(wsi_path, json_path, settings):
-def write_single_wsi(path, settings):
+def write_single_wsi(path, settings, q):
 # def write_to_lmdb(path, settings):
 # def write_to_lmdb(settings):
 # def write_single_wsi(path, q):
@@ -41,8 +41,8 @@ def write_single_wsi(path, settings):
         wsi_path, json_path = path
         t1 = time.time()
         count = 0
-        db_size = 1 << 40
-        env = lmdb.open(settings.patch_dir, map_size=db_size)
+        # db_size = 1 << 40
+        # env = lmdb.open(settings.patch_dir, map_size=db_size)
     # for wsi_path, json_path in get_file_path(settings):
         # data = json.load(open(json_path, 'r'))
         # count += len(data['coords'][0])
@@ -114,10 +114,10 @@ def write_single_wsi(path, settings):
                 # txn.put(patch_id.encode(), img_byte_arr)
             # print(os.path.basename(wsi_path))
             # print(patch_id)
-            # q.put((patch_id.encode(), img_byte_arr))
+            q.put((patch_id.encode(), img_byte_arr))
             count += 1
-            if count % 100 == 0:
-                print((time.time() - t1) / count)
+            # if count % 100 == 0:
+                # print((time.time() - t1) / count, wsi_path)
 
 
         print(time.time() - t1, len(coord[0]))
@@ -286,7 +286,7 @@ if __name__ == '__main__':
     if not os.path.exists(patch_path):
         os.makedirs(patch_path)
 
-    pool = mp.Pool(processes=2)
+    pool = mp.Pool(processes=8)
     # pool.map(fn, get_file_path(settings))
     # m = mp.Manager()
     # q = m.Queue()
@@ -300,9 +300,83 @@ if __name__ == '__main__':
 
     # print(count)
 
-    fn = partial(write_single_wsi, settings=settings)
+    q = Queue()
+    fn = partial(write_single_wsi, settings=settings, q=q)
     # pool.apply_async(fn, get_file_path(settings))
-    pool.map(fn, get_file_path(settings))
+    # pool.map(fn, get_file_path(settings))
+
+    db_size = 1 << 40
+    env = lmdb.open(settings.patch_dir, map_size=db_size)
+    count = 0
+    t1 = time.time()
+    num_process = 16
+    with env.begin(write=True) as txn:
+
+        proc = []
+        for path in get_file_path(settings):
+            proc.append(
+                Process(target=fn, args=(path,))
+            )
+
+            if len(proc) == num_process:
+                for p in proc:
+                    p.start()
+
+                time.sleep(20)
+                while True:
+                    try:
+                        # if after 10 seconds, still no data
+                        # then means the process ends
+                        record = q.get(timeout=10)
+                        # with
+                        txn.put(*record)
+                        count += 1
+                        # if num is None:
+                            # break
+                        # print(num[0].decode())
+                        if count % 1000 == 0:
+                            print('time', (time.time() - t1) / count)
+                    except:
+                        print('end of reading {} processes'.format(len(proc)))
+
+
+                # wait untill process ends
+                for p in proc:
+                    p.join()
+
+                # clear prc
+                proc = []
+
+        # if last p less len(proc)
+        for p in proc:
+            p.start()
+
+        time.sleep(10)
+        while True:
+            try:
+                # if after 10 seconds, still no data
+                # then means the process ends
+                record = q.get(timeout=10)
+                # if num is None:
+                    # break
+                txn.put(*record)
+                # print(num[0].decode())
+            except:
+                print('endo of reading {} processes'.format(len(proc)))
+
+        for p in proc:
+            p.join()
+
+
+        # num = q.get()
+        # print(num)
+        # q.join()
+        # proc = []
+
+
+
+
+
 
     # pool.close()
     # pool.join()

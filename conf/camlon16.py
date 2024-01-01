@@ -6,8 +6,8 @@ from dataset.utils import CAMLON16Label
 
 # import sys; sys.exit()
 
-_dataset_path = '/data/ssd1/by/CAMELYON16/'
-# _dataset_path = '/data/smb/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/'
+# _dataset_path = '/data/ssd1/by/CAMELYON16/'
+_dataset_path = '/data/smb/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/'
 
 # train_dirs = {
 #     # 'wsis': ['/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/normal/', '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/tumor/'],

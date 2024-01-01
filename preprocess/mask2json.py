@@ -321,22 +321,22 @@ def write_single_json(slide_id, label, settings):
     name = os.path.splitext(slide_id)[0]
     mask_path = os.path.join(settings.mask_dir, name + '.png')
 
-    try:
-        wsi = openslide.OpenSlide(wsi_path)
-    except Exception as e:
-        print(wsi_path)
-        print(e)
-        # raise ValueError('wrong sss')
-        print(wsi_path)
+    # try:
+    #     wsi = openslide.OpenSlide(wsi_path)
+    # except Exception as e:
+    #     print(wsi_path)
+    #     print(e)
+    #     # raise ValueError('wrong sss')
+    #     print(wsi_path)
 
-    # real_mag, level_0_mag = get_real_mag(wsi_path=wsi_path, at_mag=settings.mag)
+    real_mag, level_0_mag = get_real_mag(wsi_path=wsi_path, at_mag=settings.mag)
 
 
 
         # import sys; sys.exit()
 
     # print(wsi_path)
-    return
+    # return
 
     assert real_mag >= settings.mag
 

@@ -369,5 +369,5 @@ def test_wsi():
 
 # test_num_patches()
 # test_wsi()
-test_wsilmdb()
+# test_wsilmdb()
 # test_wsirepeat()

@@ -60,6 +60,8 @@ if '__main__' == __name__:
         from conf.brac import settings
 
     downloader = partial(write_single_file, save_dir=settings.wsi_dir)
-    pool = multiprocessing.Pool(processes=100)
+    pool = multiprocessing.Pool(processes=16)
     pool.map(downloader, get_filename(settings))
+    # res = pool.apply_async(downloader, get_filename(settings))
     pool.join()
+    # print(res.get())

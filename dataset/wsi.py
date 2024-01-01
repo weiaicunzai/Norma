@@ -872,7 +872,7 @@ class WSIJSON(PatchLabelMixIn, FiterCoordsMixIn):
 
 
         # parsed_json = json.loads(json_data)
-        parsed_json = self.read_json(patch_json_dir, json_path)
+        parsed_json = self.read_json(patch_json_dir, json_path) # read patch_level label
         self.wsi_label = parsed_json['label']
 
         # all patches
@@ -888,6 +888,8 @@ class WSIJSON(PatchLabelMixIn, FiterCoordsMixIn):
         assert direction in [0, 1, 2, 3, 4, 5, 6, 7, -1]
         self.direction = direction
         self.json_patch = json_path
+
+        self.cache = {}
 
     # def shuffle(self):
         #  self.coords
@@ -943,7 +945,7 @@ class WSIJSON(PatchLabelMixIn, FiterCoordsMixIn):
 
 
 
-            yield {
+            data = {
                 #'img': self.wsi.read_region(
                 #    *coord
                 #).convert('RGB'),
@@ -954,6 +956,10 @@ class WSIJSON(PatchLabelMixIn, FiterCoordsMixIn):
                 'patch_id': patch_id
 
             }
+
+            # self.cache[patch_id] = data
+
+            yield data
 
 # class WSILMDBPatch:
 #     def __init__(self, json_path, direction, patch_label_dir, env=None):

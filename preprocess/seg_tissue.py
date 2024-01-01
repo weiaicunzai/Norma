@@ -3,6 +3,11 @@ import cv2
 import numpy as np
 import glob
 import os
+import csv
+import multiprocessing
+# import itertools
+from functools import partial
+
 
 
 # parser.add_argument('--a_t', type=int, default=100,
@@ -172,6 +177,8 @@ def segment_tissues(src_dir, dest_dir):
 
         if not mask.sum():
             # for scale in [2, 4, 8, 16, 32, 64]:
+            # control the granularity of segementation, some wsis are small
+            # so we need to use small scales like 2 to segmenta some thing
             for scale in (2**i for i in range(1, 6)):
                 filter_params={'a_t':100 // scale, 'a_h': 16, 'max_n_holes': 8}
                 mask = segment_tissue(wsi, seg_level=6, use_otsu=True, filter_params=filter_params)
@@ -191,29 +198,131 @@ def segment_tissues(src_dir, dest_dir):
         cv2.imwrite(os.path.join(dest_dir, base_name.replace('.tif', '.png')), mask)
 
 
+# def segment_a_single_wsi(wsi_path, dest_dir, seg_level):
+def segment_a_single_wsi(wsi_path, dest_dir):
+    # wsi_name
+
+    wsi = openslide.OpenSlide(wsi_path)
+    print(wsi.level_dimensions)
+    seg_level = 0
+    for idx, dims in enumerate(wsi.level_dimensions):
+        if max(dims) < 10000:
+            seg_level = idx
+            break
+
+    mask = segment_tissue(wsi, seg_level=seg_level, use_otsu=True)
+
+    if not mask.sum():
+        # for scale in [2, 4, 8, 16, 32, 64]:
+        # control the granularity of segementation, some wsis tissue areas
+        # are small in the wsi so we need to use small scales
+        # like 2 to segmenta tissue
+        for scale in (2**i for i in range(1, 6)):
+            filter_params={'a_t':100 // scale, 'a_h': 16, 'max_n_holes': 8}
+            mask = segment_tissue(wsi, seg_level=seg_level, use_otsu=True, filter_params=filter_params)
+
+            # if masked pixel is larger than 400000
+            # if mask.sum() > 4000000:
+            if mask.sum() / (mask.shape[0] * mask.shape[1]) > 0.1:
+                break
+
+    assert mask.sum() > 0
+
+    base_name = os.path.basename(wsi_path)
+    # print(os.path.join(dest_dir, base_name))
+
+    if not os.path.exists(os.path.join(dest_dir)):
+         os.makedirs(dest_dir)
+
+    file_name = os.path.join(dest_dir,  os.path.splitext(base_name)[0] + '.png')
+    # print('write {}'.format(os.path.join(dest_dir, base_name.replace('.tif', '.png'))))
+    print('write {}'.format(file_name))
+    # cv2.imwrite(os.path.join(dest_dir, base_name.replace('.tif', '.png')), mask)
+    cv2.imwrite(file_name, mask)
 
 
+def level_0_mag(wsi):
+    if 'aperio.AppMag' in wsi.properties.keys():
+        level_0_magnification = int(float(wsi.properties['aperio.AppMag']))
+    elif 'openslide.mpp-x' in wsi.properties.keys():
+        level_0_magnification = 40 if int(float(wsi.properties['openslide.mpp-x']) * 10) == 2 else 20
+    else:
+        # print('ccccccc????')
+        # raise ValueError('no information????')
+        level_0_magnification = 40
+
+    return level_0_magnification
+
+def get_filename(source_csv_file, wsi_dir):
+    with open(source_csv_file, newline='') as csvfile:
+        spamreader = csv.DictReader(csvfile)
+        for row in spamreader:
+            # print(', '.join(row))
+            # print(row[2])
+            # print(row['slide_id'])
+            # print(row)
+            yield os.path.join(wsi_dir, row['']+ '.svs')
+            # row[]
 
 if __name__ == '__main__':
+
+
+    path = '/data/smb/syh/WSI_cls/TCGA_BRCA/img'
+    save_path = '/data/smb/syh/WSI_cls/TCGA_BRCA/mask'
+
+
+    # for i in glob.iglob(os.path.join(path, '**', '*.svs'), recursive=True):
+    # for i in get_filename(source_csv_file='/data/hdd1/by/HIPT/2-Weakly-Supervised-Subtyping/splits/10foldcv_subtype/tcga_brca/splits_0_bool.csv', wsi_dir=path):
+    wsi_lists = get_filename(source_csv_file='/data/hdd1/by/HIPT/2-Weakly-Supervised-Subtyping/splits/10foldcv_subtype/tcga_brca/splits_0_bool.csv', wsi_dir=path)
+    # print(len(list(wsi_lists)))
+    # import sys; sys.exit()
+        # segment_a_single_wsi()
+        # print(i)
+        # i = os.path.join(path, i)
+        # print(i)
+        # wsi = openslide.OpenSlide(i)
+        # print(wsi.level_dimensions)
+        # print(wsi.properties['Mag'])
+        # print()
+        # print(wsi.level_count)
+        # print(wsi.level_downsamples)
+        # print(wsi.level_downsamples)
+        # print(wsi.level_count)
+        # print(wsi.level_dimensions)
+        # wsi.read_region()
+        # print(level_0_mag(wsi))
+        # segment_a_single_wsi(wsi_path=i, dest_dir=save_path, seg_level=)
+
+        # import sys; sys.exit()
+        # print(i)
+    # pool = multiprocessing.Pool(processes=32)
+    # pool.map(segment_a_single_wsi, itertools.izip(wsi_lists, itertools.repeat(save_path)))
+    # pool.map(partial(segment_a_single_wsi, dest_dir=save_path), wsi_lists)
+
+
+    # segment_a_single_wsi(wsi_path=i, dest_dir=save_path)
+
+
+        # import sys; sys.exit()
 
 # from random import randint
 
 # path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/images/test_{:03d}.tif'.format(randint(1, 100))
 
-    path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/tumor/'
-    dest_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_mask/tumor/'
+    # path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/tumor/'
+    # dest_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_mask/tumor/'
 
-    segment_tissues(path, dest_dir)
+    # segment_tissues(path, dest_dir)
 
-    path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/normal/'
-    dest_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_mask/normal/'
+    # path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/normal/'
+    # dest_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_mask/normal/'
 
-    segment_tissues(path, dest_dir)
+    # segment_tissues(path, dest_dir)
 
-    path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/images/'
-    dest_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/masks'
+    # path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/images/'
+    # dest_dir = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/testing/masks'
 
-    segment_tissues(path, dest_dir)
+    # segment_tissues(path, dest_dir)
 
 
 # wsi = openslide.OpenSlide(path)

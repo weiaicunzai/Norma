@@ -1045,13 +1045,14 @@
 # img = img[:512, :512, :]
 # print(img.shape)
 # cv2.imwrite('test_512_patch.jpg', img)
-def build_model(model_name, num_classes, dis_mem_len=512, alpha=-0.1):
+# def build_model(model_name, num_classes, dis_mem_len=512, alpha=-0.1, args=None):
+def build_model(model_name, num_classes, args=None):
     # model_name =
     if model_name == 'mynet_A_s':
         from .my_net import MyNet
         # net = MyNet(n_classes=num_classes, n_dim=384, interval=100, dis_mem_len=64)
         # net = MyNet(n_dim=384, dis_mem_len=512)
-        net = MyNet(n_dim=384, dis_mem_len=dis_mem_len, alpha=alpha)
+        net = MyNet(n_dim=384, dis_mem_len=args.mem_len, alpha=args.alpha)
         # net = MyNet(n_classes=num_classes, n_dim=384, interval=4, dis_mem_len=2)
         return net
 
@@ -1059,7 +1060,7 @@ def build_model(model_name, num_classes, dis_mem_len=512, alpha=-0.1):
         from .my_net import MyNet
         # net = MyNet(n_classes=num_classes, n_dim=384 * 2, interval=100, dis_mem_len=64)
         # net = MyNet(n_dim=384 * 2, dis_mem_len=512)
-        net = MyNet(n_dim=384 * 2, dis_mem_len=dis_mem_len)
+        net = MyNet(n_dim=384 * 2, dis_mem_len=args.mem_len)
         return net
 
 
@@ -1073,7 +1074,12 @@ def build_model(model_name, num_classes, dis_mem_len=512, alpha=-0.1):
         net = vit_base(n_classes=num_classes)
         return net
 
-    if model_name=='transformerXL':
-        from .xxn_xl import CustomTransformerXL
-        net=CustomTransformerXL(num_classes,dis_mem_len, alpha)
+    if model_name=='cm_trans':
+        from .cmtrans import get_vit256, vit_small
+        if args.weights:
+            net = get_vit256(args.weights, num_classes=num_classes, max_mem_len=args.mem_len)
+        else:
+            net = vit_small(num_classes=num_classes, max_mem_len=args.mem_len)
+
+        # net=(num_classes,dis_mem_len, alpha)
         return net

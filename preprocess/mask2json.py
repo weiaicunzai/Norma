@@ -15,7 +15,8 @@ import numpy as np
 import openslide
 
 class MaskConverter:
-    def __init__(self, wsi_path, mask_path, patch_size, at_mag=20, random_rotate=False, fg_thresh=0.33):
+    # def __init__(self, wsi_path, mask_path, patch_size, at_mag=20, random_rotate=False, fg_thresh=0.33):
+    def __init__(self, wsi_path, mask_path, patch_size, at_mag=20, fg_thresh=0.33):
 
         """at_mag: extract patches at magnification xxx"""
 
@@ -46,11 +47,26 @@ class MaskConverter:
         # if current patch is the last patch
         self.fg_thresh = fg_thresh
 
+        self.assert_mag()
         self.num_patches = self.cal_num_patches()
+
+    def assert_mag(self):
+        self.level_0_mag
+        for downsample_factor in self.wsi.level_downsamples:
+            # downsample_factor
+            mag = round(self.level_0_mag / downsample_factor)
+            if self.at_mag == mag:
+                return
+
+        raise ValueError('wsi {} do not have mag {}'.format(self.wsi, self.at_mag))
+
+
+
 
     def get_kernel_size(self):
          level = self.mag2level(self.at_mag)
          scale = self.wsi.level_downsamples[level]
+         # resized self.patch_size to level 0, then divide self.mask_scale
          kernel_size = int(self.patch_size * scale / self.mask_scale)
 
          return kernel_size
@@ -147,7 +163,9 @@ class MaskConverter:
         # scale = mag_20_resolution[0] / self.mask.shape[0]
         # level_0_resolution[0] / self.mask.shape[0] and level_0_resolution[1] / self.mask.shape[1]
         # are not neccesary the same, however, thus small erorr does not effect our patching results
-        scale = level_0_resolution[0] / self.mask.shape[0]
+        scale = round(level_0_resolution[0] / self.mask.shape[0])
+        # print(scale)
+        # import sys; sys.exit()
 
         return scale
 
@@ -225,7 +243,20 @@ class MaskConverter:
             top_left_xy = (c_idx * self.mask_scale, r_idx * self.mask_scale)
             top_left_xy = [int(x) for x in top_left_xy]
 
+            for x in top_left_xy:
+                # print(top_left_xy, self.patch_size, self.mask_scale, c_idx)
+                assert x % self.patch_size == 0
+
+            # print(top_left_xy, self.patch_size)
             patch_mask = self.mask[r_idx : r_idx + self.kernel_size, c_idx: c_idx + self.kernel_size]
+
+            # remove patch block extended the image borader
+            if patch_mask.shape[0] != self.kernel_size:
+                continue
+
+            # remove patch block extended the image borader
+            if patch_mask.shape[1] != self.kernel_size:
+                continue
 
             if (patch_mask > 0).sum() / (self.kernel_size * self.kernel_size) < self.fg_thresh:
                 continue
@@ -242,9 +273,9 @@ def mask_path(wsi_path):
     mask_path = mask_path.replace('.tif', '.png')
     return mask_path
 
-def mask_path_brac(wsi_path):
-    wsi_path = wsi_path.replace('img', 'mask').replace('.svs', '.png')
-    return wsi_path
+# def mask_path_brac(wsi_path):
+#     wsi_path = wsi_path.replace('img', 'mask').replace('.svs', '.png')
+#     return wsi_path
 
 def all_equal(iterator):
     iterator = iter(iterator)
@@ -287,7 +318,25 @@ def write_single_json(slide_id, label, settings):
     res['coords'] = []
 
     wsi_path = os.path.join(settings.wsi_dir, slide_id)
-    real_mag, level_0_mag = get_real_mag(wsi_path=wsi_path, at_mag=settings.mag)
+    name = os.path.splitext(slide_id)[0]
+    mask_path = os.path.join(settings.mask_dir, name + '.png')
+
+    try:
+        wsi = openslide.OpenSlide(wsi_path)
+    except Exception as e:
+        print(wsi_path)
+        print(e)
+        # raise ValueError('wrong sss')
+        print(wsi_path)
+
+    # real_mag, level_0_mag = get_real_mag(wsi_path=wsi_path, at_mag=settings.mag)
+
+
+
+        # import sys; sys.exit()
+
+    # print(wsi_path)
+    return
 
     assert real_mag >= settings.mag
 
@@ -295,7 +344,8 @@ def write_single_json(slide_id, label, settings):
     patch_size = int((real_mag / settings.mag) * settings.patch_size)
     at_mag = real_mag
 
-    wsi = MaskConverter(wsi_path, mask_path_brac(wsi_path), patch_size=patch_size, at_mag=at_mag)
+    # wsi = MaskConverter(wsi_path, mask_path_brac(wsi_path), patch_size=patch_size, at_mag=at_mag)
+    wsi = MaskConverter(wsi_path, mask_path, patch_size=patch_size, at_mag=at_mag)
 
     start = time.time()
     for i in range(8):
@@ -333,6 +383,8 @@ def get_filenames(settings):
     with open(csv_path, newline='') as csvfile:
         spamreader = csv.DictReader(csvfile)
         for row in spamreader:
+            # if row['slide_id'] != 'TCGA-BH-A2L8-01Z-00-DX1.ACA51CA9-3C38-48A6-B4A9-C12FFAB9AB56.svs':
+            #     continue
             yield row['slide_id'], row['label']
 
 def get_args_parser():

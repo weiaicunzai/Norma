@@ -1,8 +1,10 @@
+import argparse
 import sys
 import os
 import re
 import glob
 import xml.etree.ElementTree as ET
+import json
 
 sys.path.append(os.getcwd())
 
@@ -11,6 +13,7 @@ import cv2
 import numpy as np
 import openslide
 import lmdb
+import pandas
 
 from dataset import WSI, WSILMDB
 from conf import camlon16
@@ -50,19 +53,6 @@ def read_wsi(wsi_path):
 
     return np.array(img), level, downsample_factor
 
-
-def draw_patch_seq(img, patch_id, cnt, downsample_factor):
-    # patch_id = data['patch_id']
-    x, y = re.search(r"([0-9]+)_([0-9]+)_1_512_512", patch_id).groups()
-    x = int(x)
-    y = int(y)
-    start = int(x / downsample_factor), int(y / downsample_factor)
-    end = int((x + 512 * 2) / downsample_factor), int((y + 512 * 2) / downsample_factor)
-    cv2.rectangle(img, start, end, color=(255,0,0), thickness=2)
-    text_start = start[0], start[1] + int(1024 / downsample_factor / 1.5)
-    cv2.putText(img, str(cnt), text_start, cv2.FONT_HERSHEY_COMPLEX, fontScale=0.7, color=(255,0,0), thickness=2, bottomLeftOrigin=False)
-
-    return img
 
 def parse_anno(xml_path):
     annos = []
@@ -371,3 +361,114 @@ def test_wsi():
 # test_wsi()
 # test_wsilmdb()
 # test_wsirepeat()
+
+def draw_patch_seq(img, patch_id, cnt, level_dims):
+    # patch_id = data['patch_id']
+    # x, y = re.search(r"([0-9]+)_([0-9]+)_1_512_512", patch_id).groups()
+    # x = patch_id[0]
+    # y = patch_id[1]
+    # patch_size = patch_id
+    (x, y), level, (patch_size, patch_size) = patch_id
+    dims = level_dims[level]
+    img_height, img_width = img.shape[:2]
+    downsample_factor_x = dims[0] / img_width
+    # print(downsample_factor, dims, img.shape[:2])
+    downsample_factor_y = dims[1] / img_height
+
+    assert abs(dims[0] / img_width - dims[1] / img_height) < 1
+    # x = int(x)
+    # y = int(y)
+    # start = int(x / downsample_factor), int(y / downsample_factor)
+    start = int(x / downsample_factor_x), int(y / downsample_factor_y)
+    # end = int((x + 512 * 2) / downsample_factor), int((y + 512 * 2) / downsample_factor)
+    # end = int((x + patch_size) / downsample_factor), int((y + patch_size) / downsample_factor)
+    end = int((x + patch_size) / downsample_factor_x), int((y + patch_size) / downsample_factor_y)
+    cv2.rectangle(img, start, end, color=(255,0,0), thickness=1)
+    # text_start = start[0], start[1] + int(1024 / downsample_factor / 1.5)
+    # text_start = start[0], start[1] + int(patch_size / downsample_factor / 1.5)
+    # bot_left corrner
+    text_start = start[0] + int(patch_size / downsample_factor_x / 20), start[1] + int(patch_size / downsample_factor_y / 1.5)
+    # text_start = start[0], start[1] + int(patch_size / downsample_factor)
+    cv2.putText(img, str(cnt), text_start, cv2.FONT_HERSHEY_COMPLEX, fontScale=0.4, color=(255,0,0), thickness=1, bottomLeftOrigin=False)
+
+    return img
+
+def vis_mask(wsi_path, mask_path):
+    wsi = openslide.OpenSlide(wsi_path)
+
+    seg_level = len(wsi.level_dimensions) - 1
+    img = wsi.read_region((0,0), seg_level, wsi.level_dimensions[seg_level]).convert('RGB')
+    img = np.array(img)
+
+    mask = cv2.imread(mask_path, -1)
+    print(img.shape, mask.shape)
+
+    img = cv2.resize(img, mask.shape[::-1])
+
+    mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+
+    res = cv2.addWeighted(img, 0.7, mask, 0.3, 0)
+
+    return res
+
+def get_args_parser():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--dataset', required=True, default=None)
+
+    return parser.parse_args()
+
+# def draw_patch_id(seg_path, )
+
+if __name__  == '__main__':
+    args = get_args_parser()
+    if args.dataset == 'brac':
+        from conf.brac import settings
+    else:
+        raise ValueError('wrong value error')
+
+    df = pandas.read_csv(settings.file_list_csv)
+    row = df.sample(n=1)
+    # slide_id = row.iloc[0]['slide_id']
+    print('slide_id')
+    slide_id = 'TCGA-BH-A2L8-01Z-00-DX1.ACA51CA9-3C38-48A6-B4A9-C12FFAB9AB56.svs'
+
+    wsi_path = os.path.join(settings.wsi_dir, slide_id)
+    mask_path = os.path.join(settings.mask_dir, slide_id.replace('.svs', '.png'))
+    img = vis_mask(wsi_path, mask_path)
+
+    json_path = os.path.join(settings.json_dir, slide_id.replace('.svs', '.json'))
+    direction = random.choice(range(8))
+
+    msg =   {
+                0: 'row         + col          + row first',
+                1: 'row         + col          + col first',
+                2: 'row         + revserse col + row first',
+                3: 'row         + revserse col + col first',
+                4: 'reverse row + col          + row first',
+                5: 'reverse row + col          + col first',
+                6: 'reverse row + reverse col  + row first',
+                7: 'reverse row + reverse col  + col first',
+            }
+
+    print('direction is {}, it should be in order {}'.format(direction, msg[direction]))
+
+    json_data = json.load(open(json_path, 'r'))
+
+    # print(json_data.keys())
+    print('file name {}'.format(json_data['filename']))
+    print('label {}'.format(json_data['label']))
+    coords = json_data['coords'][direction]
+
+    wsi = openslide.OpenSlide(wsi_path)
+    level_dims = wsi.level_dimensions
+
+    # incase the last level is too small
+    # writing text would be hard to read
+    img = cv2.resize(img, (0, 0), fx=3, fy=3)
+
+    for idx, patch_id in enumerate(coords):
+        # print(patch_id)
+        # print(patch_id)
+        img = draw_patch_seq(img, patch_id, idx, level_dims)
+
+    cv2.imwrite('tmp/img_test_json.jpg'.format(), img)

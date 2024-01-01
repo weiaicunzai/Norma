@@ -178,7 +178,6 @@ class PatchEmbed(nn.Module):
         # print(x.shape)
         return x
 
-
 class VisionTransformer(nn.Module):
     """ Vision Transformer """
     def __init__(self, img_size=[224], patch_size=16, in_chans=3, num_classes=0, embed_dim=768, depth=12,

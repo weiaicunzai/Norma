@@ -20,7 +20,6 @@ def get_args_parser():
     return parser.parse_args()
 
 
-
 if __name__  == '__main__':
     args = get_args_parser()
     if args.dataset == 'brac':
@@ -58,6 +57,7 @@ if __name__  == '__main__':
     print(mask.shape, img.shape)
     mask = cv2.resize(mask, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST )
     open_cv_img = img[:, :, ::-1].copy()
+
 
     alpha = 0.7
     img = cv2.addWeighted(img, alpha, mask, 1 - alpha, 0)

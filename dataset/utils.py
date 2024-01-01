@@ -26,9 +26,54 @@ from torchvision import transforms
 
 # from dataset.aa import WSIDataLoader
 # from .dataloader import WSIDataLoader
-from dataset.dataloader import WSIDataLoader
+# from dataset.dataloader import WSIDataLoader
 # from dataset.aa import DistWSIDataLoader
-from .dist_dataloader import DistWSIDataLoader
+# from .dist_dataloader import DistWSIDataLoader
+class BRACLabel:
+    def __init__(self, csv_file):
+        self.csv_file = csv_file
+        # for line in open()
+
+        self.name2label = {}
+        label_dict = {'IDC':0, 'ILC':1}
+
+
+
+
+        with open(csv_file, newline='') as csvfile:
+            spamreader = csv.DictReader(csvfile)
+            # print(list(spamreader))
+            print(csv_file)
+            for row in spamreader:
+                # row = row[0].split(',')
+                # print(row)
+                # if row[1] == 'Normal':
+                    # label = 0
+                # elif row[1] == 'Tumor':
+                    # label = 1
+                # else:
+                # print(row)
+                code = row['oncotree_code']
+                file_name = row['slide_id']
+                # print(file_name, code)
+                self.name2label[file_name] = label_dict[code]
+
+    def __call__(self, filename):
+        basename = os.path.basename(filename)
+
+        return self.name2label[basename]
+        # print(basename)
+        # if 'tumor' in basename:
+        #     return 1
+        # elif 'normal' in basename:
+        #     return 0
+        # elif 'test' in basename:
+        #     return self.name2label[os.path.basename(filename).split('.')[0]]
+        # else:
+        #     raise ValueError('wrong filename {}'.format(filename))
+
+
+
 
 class CAMLON16Label:
     def __init__(self, csv_file):
@@ -619,7 +664,7 @@ def build_transforms(img_set):
 
 
 # def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None, all=True, drop_last=True):
-def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=True, drop_last=True, seq_len=256):
+def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=True, drop_last=True, max_len=None, args=None):
     # assert isinstance(dist, bool)
     assert img_set in ['val', 'train', 'test']
 
@@ -687,7 +732,9 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=T
         transforms=trans,
         dist=dist,
         all=all,
-        seq_len=seq_len
+        seq_len=args.seq_len,
+        preload=args.preload,
+        max_len=max_len
     )
     #dataloader = torch.utils.data.DataLoader(
     #    dataset,

@@ -107,12 +107,8 @@ if __name__ == '__main__':
                         # if after 10 seconds, still no data
                         # then means the process ends
                         record = q.get(timeout=10)
-                        # with
                         txn.put(*record)
                         count += 1
-                        # if num is None:
-                            # break
-                        # print(num[0].decode())
                         if count % 1000 == 0:
                             print('time', (time.time() - t1) / count, 'total', count)
                     except:
@@ -137,10 +133,7 @@ if __name__ == '__main__':
                 # if after 10 seconds, still no data
                 # then means the process ends
                 record = q.get(timeout=10)
-                # if num is None:
-                    # break
                 txn.put(*record)
-                # print(num[0].decode())
                 if count % 1000 == 0:
                     print('time', (time.time() - t1) / count, 'total', count)
             except:

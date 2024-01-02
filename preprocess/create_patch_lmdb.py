@@ -120,7 +120,7 @@ def write_single_wsi(path, settings, q):
                 # print((time.time() - t1) / count, wsi_path)
 
 
-        print(time.time() - t1, len(coord[0]))
+        print(time.time() - t1, len(coords[0]))
 
 #def create_lmdb(data_set, lmdb_path):
 #    #wsi_path = os.path.join()
@@ -281,12 +281,11 @@ if __name__ == '__main__':
     if args.dataset == 'brac':
         from conf.brac import settings
 
-
     patch_path = settings.patch_dir
     if not os.path.exists(patch_path):
         os.makedirs(patch_path)
 
-    pool = mp.Pool(processes=8)
+    # pool = mp.Pool(processes=8)
     # pool.map(fn, get_file_path(settings))
     # m = mp.Manager()
     # q = m.Queue()
@@ -335,9 +334,10 @@ if __name__ == '__main__':
                             # break
                         # print(num[0].decode())
                         if count % 1000 == 0:
-                            print('time', (time.time() - t1) / count)
+                            print('time', (time.time() - t1) / count, 'total', count)
                     except:
                         print('end of reading {} processes'.format(len(proc)))
+                        break
 
 
                 # wait untill process ends
@@ -361,8 +361,11 @@ if __name__ == '__main__':
                     # break
                 txn.put(*record)
                 # print(num[0].decode())
+                if count % 1000 == 0:
+                    print('time', (time.time() - t1) / count, 'total', count)
             except:
-                print('endo of reading {} processes'.format(len(proc)))
+                print('end of reading {} processes'.format(len(proc)))
+                break
 
         for p in proc:
             p.join()

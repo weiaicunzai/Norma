@@ -1,5 +1,7 @@
 
 # Local Dependencies
+import os
+import torch
 import preprocess.vision_transformer as vits
 
 def get_vit256(pretrained_weights, arch='vit_small', device=torch.device('cuda:0')):

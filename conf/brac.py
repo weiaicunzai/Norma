@@ -114,6 +114,7 @@ class Settings:
         self.json_dir = os.path.join(self.root, 'json', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
         self.file_list_csv = 'dataset/dataset_csv/brac/brac.csv'
         self.patch_dir = os.path.join(self.root, 'patch', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
+        self.feat_dir = os.path.join(self.root, 'feat', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
 
     # def file_list(self):
     #     # file = os.path.join(, 'dataset/dataset_csv/brac/brac.csv')

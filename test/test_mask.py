@@ -24,6 +24,8 @@ if __name__  == '__main__':
     args = get_args_parser()
     if args.dataset == 'brac':
         from conf.brac import settings
+    elif args.dataset == 'cam16':
+        from conf.camlon16 import settings
     else:
         raise ValueError('wrong value error')
 
@@ -38,8 +40,9 @@ if __name__  == '__main__':
 
 
     wsi_path = os.path.join(settings.wsi_dir, slide_id)
-    mask_path = os.path.join(settings.mask_dir, slide_id.replace('.svs', '.png'))
+    mask_path = os.path.join(settings.mask_dir, os.path.splitext(slide_id)[0] + '.png')
     # mask_path = os.path.join('/data/hdd1/by/CLAM/tmp/masks', slide_id.replace('.svs', '.png'))
+    print(wsi_path)
 
     wsi = openslide.OpenSlide(wsi_path)
     level = 0
@@ -52,6 +55,7 @@ if __name__  == '__main__':
     img = wsi.read_region((0,0), level, dims).convert('RGB')
 
     print('read mask from {}'.format(mask_path))
+    print(mask_path)
     mask = cv2.imread(mask_path)
     img = np.array(img)
     print(mask.shape, img.shape)

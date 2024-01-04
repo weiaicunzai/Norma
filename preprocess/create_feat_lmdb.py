@@ -521,16 +521,21 @@ def get_args_parser():
 # def writer_process(settings, num_patches, q):
 def writer_process(settings, q):
 
+    env = lmdb.open(settings.patch_dir, readonly=True, lock=False)
+    with env.begin() as txn:
+        num_patches = txn.stat()['entries']
+
+    # env = lmdb.open(settings.patch_dir, map_size=db_size)
+    # with env.begin() as txn:
+    #     num_patches = txn.stat()['entries']
+
     count = 0
     t1 = time.time()
 
     db_size = 1 << 42
     env = lmdb.open(settings.feat_dir, map_size=db_size)
-    # with env.begin() as txn:
-        # num_patches = txn.stat()['entries']
 
     with env.begin(write=True) as txn:
-        num_patches = txn.stat()['entries']
         while True:
             record = q.get()
 

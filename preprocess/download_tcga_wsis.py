@@ -13,14 +13,11 @@ sys.path.append(os.getcwd())
 def get_uuid(filename):
 
     files_endpt = 'https://api.gdc.cancer.gov/files'
-    # params = {'fields':'cases.submitter_id,file_id,file_name,file_size'}
-    # print(filename)
     filt = {
         "op":"=",
         "content":{
             "field":"file_name",
             "value":[
-                # "TCGA-3C-AALI-01Z-00-DX2.CF4496E0-AB52-4F3E-BDF5-C34833B91B7C.svs"
                 filename
             ]
         }
@@ -37,8 +34,6 @@ def get_filename(settings):
     with open(csv_file, 'r') as f:
         for row in csv.DictReader(f):
             yield row['slide_id']
-    # for record in settings.file_list():
-        # yield os.path.basename(record['slide_id'])
 
 def write_single_file(filename, save_dir):
     uuid = get_uuid(filename)
@@ -62,6 +57,4 @@ if '__main__' == __name__:
     downloader = partial(write_single_file, save_dir=settings.wsi_dir)
     pool = multiprocessing.Pool(processes=16)
     pool.map(downloader, get_filename(settings))
-    # res = pool.apply_async(downloader, get_filename(settings))
     pool.join()
-    # print(res.get())

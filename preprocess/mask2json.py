@@ -15,7 +15,6 @@ import numpy as np
 import openslide
 
 class MaskConverter:
-    # def __init__(self, wsi_path, mask_path, patch_size, at_mag=20, random_rotate=False, fg_thresh=0.33):
     def __init__(self, wsi_path, mask_path, patch_size, at_mag=20, fg_thresh=0.33):
 
         """at_mag: extract patches at magnification xxx"""
@@ -34,15 +33,9 @@ class MaskConverter:
 
         self.patch_size = int(patch_size)  # extracted patch resolution at "at_mag"
         self.at_mag = int(at_mag)
-        # self.random_rotate = random_rotate
 
         self.kernel_size = self.get_kernel_size()
 
-
-        # if self.random_rotate == False:
-        #     self.construct_grids_m()
-        # else:
-        #     self.construct_random_grids_m(0)
 
         # if current patch is the last patch
         self.fg_thresh = fg_thresh
@@ -164,8 +157,6 @@ class MaskConverter:
         # level_0_resolution[0] / self.mask.shape[0] and level_0_resolution[1] / self.mask.shape[1]
         # are not neccesary the same, however, thus small erorr does not effect our patching results
         scale = round(level_0_resolution[0] / self.mask.shape[0])
-        # print(scale)
-        # import sys; sys.exit()
 
         return scale
 
@@ -263,20 +254,6 @@ class MaskConverter:
 
             yield top_left_xy, self.mag2level(self.at_mag), (self.patch_size, self.patch_size)
 
-
-def mask_path(wsi_path):
-    if 'training' in wsi_path:
-        mask_path = wsi_path.replace('training', 'training_mask')
-
-    if 'testing' in wsi_path:
-        mask_path = wsi_path.replace('images', 'masks')
-    mask_path = mask_path.replace('.tif', '.png')
-    return mask_path
-
-# def mask_path_brac(wsi_path):
-#     wsi_path = wsi_path.replace('img', 'mask').replace('.svs', '.png')
-#     return wsi_path
-
 def all_equal(iterator):
     iterator = iter(iterator)
     try:
@@ -321,22 +298,8 @@ def write_single_json(slide_id, label, settings):
     name = os.path.splitext(slide_id)[0]
     mask_path = os.path.join(settings.mask_dir, name + '.png')
 
-    # try:
-    #     wsi = openslide.OpenSlide(wsi_path)
-    # except Exception as e:
-    #     print(wsi_path)
-    #     print(e)
-    #     # raise ValueError('wrong sss')
-    #     print(wsi_path)
-
     real_mag, level_0_mag = get_real_mag(wsi_path=wsi_path, at_mag=settings.mag)
 
-
-
-        # import sys; sys.exit()
-
-    # print(wsi_path)
-    # return
 
     assert real_mag >= settings.mag
 
@@ -344,7 +307,6 @@ def write_single_json(slide_id, label, settings):
     patch_size = int((real_mag / settings.mag) * settings.patch_size)
     at_mag = real_mag
 
-    # wsi = MaskConverter(wsi_path, mask_path_brac(wsi_path), patch_size=patch_size, at_mag=at_mag)
     wsi = MaskConverter(wsi_path, mask_path, patch_size=patch_size, at_mag=at_mag)
 
     start = time.time()

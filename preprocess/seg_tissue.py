@@ -4,18 +4,6 @@ import numpy as np
 import glob
 import os
 import csv
-import multiprocessing
-# import itertools
-from functools import partial
-
-
-
-# parser.add_argument('--a_t', type=int, default=100,
-# 					help='area filter for tissue')
-# parser.add_argument('--a_h', type=int, default=16,
-# 					help='area filter for holes')
-# parser.add_argument('--max_n_holes', type=int, default=8,
-# 					help='maximum number of holes to consider for each tissue contour')
 
 
 def scaleContourDim(contours, scale):

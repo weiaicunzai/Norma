@@ -2,6 +2,8 @@
 path = '/data/hdd1/by/tmp_folder/here.jpg'
 import glob
 import os
+import sys
+sys.path.append(os.getcwd())
 
 from PIL import Image
 
@@ -234,32 +236,138 @@ import glob
 
 # print(d / c)
 
-import lmdb
-import struct
-lmdb_path = '/data/ssd1/by/CAMELYON16/testing_feat'
+# import lmdb
+# import struct
+# lmdb_path = '/data/ssd1/by/CAMELYON16/testing_feat'
 
-env = lmdb.open(lmdb_path, readonly=True)
-with env.begin(write=False) as txn:
-    # with txn.cursor() as curs:
-        # print()'key is:', curs.get('key'))
+# env = lmdb.open(lmdb_path, readonly=True)
+# with env.begin(write=False) as txn:
+#     # with txn.cursor() as curs:
+#         # print()'key is:', curs.get('key'))
 
-    # length = txn.stat()['entries']
-    #keys = list(txn.cursor().iternext(values=False))
-    #for key in keys:
-    #    value = txn.get(key)
-    #    # print(len(value))
-    #    d = struct.unpack('384f', value)
-    #    # print(d)
-    #    print(len(d))
-    # test_036.tif_60416_83968_1_512_512
-    print(env.path())
-    stream = txn.get('test_036.tif_60416_83968_1_512_512'.encode())
-    print(len(stream))
-    d = struct.unpack('384f', stream)
-    print(len(d))
+#     # length = txn.stat()['entries']
+#     #keys = list(txn.cursor().iternext(values=False))
+#     #for key in keys:
+#     #    value = txn.get(key)
+#     #    # print(len(value))
+#     #    d = struct.unpack('384f', value)
+#     #    # print(d)
+#     #    print(len(d))
+#     # test_036.tif_60416_83968_1_512_512
+#     print(env.path())
+#     stream = txn.get('test_036.tif_60416_83968_1_512_512'.encode())
+#     print(len(stream))
+#     d = struct.unpack('384f', stream)
+#     print(len(d))
 
 
 
     #with txn.cursor() as curs:
     #    # do stuff
     #    print('key is:', curs.get('key'))
+
+from dataset.wsi import WSIJSON
+from conf.camlon16 import settings
+import csv
+import pandas
+
+
+csv_file = settings.file_list_csv
+# for wsi_path, json_path in os.path.join()
+# from datase
+df = pandas.read_csv(settings.file_list_csv)
+
+# print(df['slide_id'])
+seq_len = 512 * 2
+num_seq = 0
+num_contains_tumor_seq = 0
+num_right_label = 0
+num_wrong_label = 0
+
+
+print('cccccccccccccccccccccccccccc')
+
+def cycle(iterable):
+    while True:
+        for i in iterable:
+            yield i
+
+for slide_id in df['slide_id']:
+    # print(row)
+    wsi_path = os.path.join(settings.wsi_dir, slide_id)
+    json_path = os.path.join(settings.json_dir, os.path.splitext(slide_id)[0] + '.json')
+
+    if 'test_114' in slide_id:
+        continue
+
+    wsi = WSIJSON(
+        json_path=json_path,
+        direction=1,
+        # patch_json_dir='/data/smb/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/'
+        # patch_json_dir='/data/smb/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/patch_jsons/patch_size_512_at_mag_20_patch_label/'
+        patch_json_dir=settings.patch_label_dir,
+    )
+
+    # num_patches = 0
+    seq_label = 0
+    seq = []
+    # print(wsi.num_patches)
+    count = 0
+    for i in cycle(wsi):
+        count += 1
+        # num_patches += 1
+        # print(i)
+        # if i['label'] == 0:
+        wsi_label = int(i['label'])
+        if wsi_label != 1:
+            break
+        # if i['label'] == 0 :
+            # num_right_label +=
+
+        # print(type(wsi_label))
+        # if 'tumor' in slide_id:
+            # print(i.get('p_label'))
+
+        patch_label = int(i.get('p_label', 0))
+        if patch_label == 1:
+            # print(patch_label)
+            print(slide_id)
+            print(
+
+                'patch_label is ', patch_label
+            )
+        seq.append(patch_label)
+        # print(patch_label)
+        # if wsi_label == 1:
+            # print(seq)
+
+        # if patch_label == 1:
+        #     print(seq)
+
+        if seq_len == len(seq):
+            # num_patches
+            # sum()
+            if wsi_label == 0:
+                num_right_label += 1
+
+            else:
+                if sum(seq) == 0:
+                    num_wrong_label += 1
+
+                else:
+                    num_right_label += 1
+
+            num_seq += 1
+
+            seq = []
+
+        if count == 512 * 78:
+            break
+    print(num_seq, num_right_label, num_wrong_label)
+
+# print('ccccc')
+# print(num_seq, num_right_label, num_wrong_label)
+
+# 1024 : 0.39949748743718594
+# 2048 : 0.39949748743718594
+# 4068: 0.39949748743718594

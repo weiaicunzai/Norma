@@ -37,6 +37,7 @@ if __name__  == '__main__':
     # import random
     # slide_id = random.choice(os.listdir('/data/hdd1/by/CLAM/tmp/masks')).replace('.png', '.svs')
     # print(slide_id)
+    # slide_id = 'normal_016.tif'
 
 
     wsi_path = os.path.join(settings.wsi_dir, slide_id)

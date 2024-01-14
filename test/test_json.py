@@ -17,7 +17,8 @@ import pandas
 
 from dataset import WSI, WSILMDB
 from conf import camlon16
-# from dataset import CAMLON16Lable
+import xml.etree.ElementTree as ET
+
 
 # from itertools import cycle
 
@@ -362,18 +363,21 @@ def test_wsi():
 # test_wsilmdb()
 # test_wsirepeat()
 
-def draw_patch_seq(img, patch_id, cnt, level_dims):
+def draw_patch_seq(img, patch_id, cnt, level_dims, level_factor):
     # patch_id = data['patch_id']
     # x, y = re.search(r"([0-9]+)_([0-9]+)_1_512_512", patch_id).groups()
     # x = patch_id[0]
     # y = patch_id[1]
     # patch_size = patch_id
-    (x, y), level, (patch_size, patch_size) = patch_id
-    dims = level_dims[level]
+    (x, y), level, (patch_size, patch_size) = patch_id # x, y: top_level x, y
+    # print(patch_id)
+    scaled_factor = level_factor[level]
+    dims = level_dims[0] # x, y
     img_height, img_width = img.shape[:2]
     downsample_factor_x = dims[0] / img_width
     # print(downsample_factor, dims, img.shape[:2])
     downsample_factor_y = dims[1] / img_height
+    # print(dims, img.shape[:2])
 
     assert abs(dims[0] / img_width - dims[1] / img_height) < 1
     # x = int(x)
@@ -382,23 +386,25 @@ def draw_patch_seq(img, patch_id, cnt, level_dims):
     start = int(x / downsample_factor_x), int(y / downsample_factor_y)
     # end = int((x + 512 * 2) / downsample_factor), int((y + 512 * 2) / downsample_factor)
     # end = int((x + patch_size) / downsample_factor), int((y + patch_size) / downsample_factor)
-    end = int((x + patch_size) / downsample_factor_x), int((y + patch_size) / downsample_factor_y)
-    cv2.rectangle(img, start, end, color=(255,0,0), thickness=1)
+    end = int((x + patch_size * scaled_factor) / downsample_factor_x), int((y + patch_size * scaled_factor) / downsample_factor_y)
+    # print(start, end, img.shape)
+    cv2.rectangle(img, start, end, color=(255,0,0), thickness=2)
     # text_start = start[0], start[1] + int(1024 / downsample_factor / 1.5)
     # text_start = start[0], start[1] + int(patch_size / downsample_factor / 1.5)
     # bot_left corrner
-    text_start = start[0] + int(patch_size / downsample_factor_x / 20), start[1] + int(patch_size / downsample_factor_y / 1.5)
+    text_start = start[0] + int(patch_size * scaled_factor / downsample_factor_x / 20), start[1] + int(patch_size * scaled_factor / downsample_factor_y / 1.5)
     # text_start = start[0], start[1] + int(patch_size / downsample_factor)
-    cv2.putText(img, str(cnt), text_start, cv2.FONT_HERSHEY_COMPLEX, fontScale=0.4, color=(255,0,0), thickness=1, bottomLeftOrigin=False)
+    cv2.putText(img, str(cnt), text_start, cv2.FONT_HERSHEY_COMPLEX, fontScale=0.25, color=(255,0,0), thickness=1, bottomLeftOrigin=False)
 
     return img
 
-def vis_mask(wsi_path, mask_path):
-    wsi = openslide.OpenSlide(wsi_path)
+def vis_mask(img, mask_path):
+    # wsi = openslide.OpenSlide(wsi_path)
 
-    seg_level = len(wsi.level_dimensions) - 1
-    img = wsi.read_region((0,0), seg_level, wsi.level_dimensions[seg_level]).convert('RGB')
-    img = np.array(img)
+    # seg_level = len(wsi.level_dimensions) - 7
+    # # seg_level = -2
+    # img = wsi.read_region((0,0), seg_level, wsi.level_dimensions[seg_level]).convert('RGB')
+    # img = np.array(img)
 
     mask = cv2.imread(mask_path, -1)
     print(img.shape, mask.shape)
@@ -410,6 +416,48 @@ def vis_mask(wsi_path, mask_path):
     res = cv2.addWeighted(img, 0.7, mask, 0.3, 0)
 
     return res
+
+def draw_cam16_anno(img, slide_id, settings, dims):
+
+    name = os.path.splitext(slide_id)[0]
+    xml_path = os.path.join(settings.anno_dir, name + '.xml')
+
+    if not os.path.exists(xml_path):
+        return img
+
+    coords = parse_anno(xml_path)
+    downsample_factor = dims[1] / img.shape[0]
+
+    tmp = []
+    for idx, region in enumerate(coords):
+        region = np.array(region)
+        region = region.reshape(-1, 1, 2)
+        region = region / downsample_factor
+        tmp.append(region.astype(np.int32))
+        # if idx > 2:
+            # break
+
+    print('total {} areas of tumor'.format(len(tmp)))
+    # img = cv2.polylines(cv_img, tmp, False, (0, 255, 255))
+    img = cv2.polylines(img, tmp, False, (0, 255, 255), thickness=2)
+    return img
+
+
+def parse_anno(xml_path):
+    annos = []
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    # print(root)
+    # print(xml_path)
+    for anno in root.iter('Annotation'):
+        res = []
+        for coord in anno.iter('Coordinate'):
+            res.append([float(coord.attrib['X']), float(coord.attrib['Y'])])
+
+        annos.append(res)
+    return annos
+
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser(add_help=False)
@@ -423,21 +471,36 @@ if __name__  == '__main__':
     args = get_args_parser()
     if args.dataset == 'brac':
         from conf.brac import settings
+    elif args.dataset == 'cam16':
+        from conf.camlon16 import settings
     else:
         raise ValueError('wrong value error')
 
     df = pandas.read_csv(settings.file_list_csv)
     row = df.sample(n=1)
-    # slide_id = row.iloc[0]['slide_id']
-    print('slide_id')
-    slide_id = 'TCGA-BH-A2L8-01Z-00-DX1.ACA51CA9-3C38-48A6-B4A9-C12FFAB9AB56.svs'
+    slide_id = row.iloc[0]['slide_id']
+    # tumor_043.tif only has one patch is wrong
 
     wsi_path = os.path.join(settings.wsi_dir, slide_id)
-    mask_path = os.path.join(settings.mask_dir, slide_id.replace('.svs', '.png'))
-    img = vis_mask(wsi_path, mask_path)
+    mask_path = os.path.join(settings.mask_dir, os.path.splitext(slide_id)[0] + '.png')
 
-    json_path = os.path.join(settings.json_dir, slide_id.replace('.svs', '.json'))
+    wsi = openslide.OpenSlide(wsi_path)
+
+    for seg_level in range(len(wsi.level_dimensions) - 1, -1, -1):
+        if max(wsi.level_dimensions[seg_level]) > 10000:
+            break
+
+
+    seg_level = len(wsi.level_dimensions) - 6
+    # seg_level = -2
+    img = wsi.read_region((0,0), seg_level, wsi.level_dimensions[seg_level]).convert('RGB')
+    img = np.array(img)
+
+    img = vis_mask(img, mask_path)
+
+    json_path = os.path.join(settings.json_dir, os.path.splitext(slide_id)[0] + '.json')
     direction = random.choice(range(8))
+    direction = 5
 
     msg =   {
                 0: 'row         + col          + row first',
@@ -458,9 +521,16 @@ if __name__  == '__main__':
     print('file name {}'.format(json_data['filename']))
     print('label {}'.format(json_data['label']))
     coords = json_data['coords'][direction]
+    # print(len(json_data['coords']))
+    # print(len(coords))
+    # print(json_path)
+    # for k, v in json_data.items():
+        # print(k)
+    print('total {} number of patches'.format(len(coords)))
 
     wsi = openslide.OpenSlide(wsi_path)
     level_dims = wsi.level_dimensions
+    level_factor = wsi.level_downsamples
 
     # incase the last level is too small
     # writing text would be hard to read
@@ -469,6 +539,10 @@ if __name__  == '__main__':
     for idx, patch_id in enumerate(coords):
         # print(patch_id)
         # print(patch_id)
-        img = draw_patch_seq(img, patch_id, idx, level_dims)
+        img = draw_patch_seq(img, patch_id, idx, level_dims, level_factor)
 
-    cv2.imwrite('tmp/img_test_json.jpg'.format(), img)
+# def draw_cam16_anno(img, slide_id, settings, dims):
+
+    if args.dataset == 'cam16':
+        img = draw_cam16_anno(img, slide_id, settings, level_dims[0])
+    cv2.imwrite('tmp/img_test_json.jpg', img)

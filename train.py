@@ -48,7 +48,7 @@ def get_args_parser():
                          help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     # parser.add_argument('--num_gpus', default=1, type=int)
     parser.add_argument('--model', default='mynet_A_s', type=str, help='name of the model')
-    parser.add_argument('--dataset', default='cam16')
+    # parser.add_argument('--dataset', default='cam16')
     parser.add_argument('--num_gpus', default=1)
     parser.add_argument('--local_rank', default=1)
     parser.add_argument('--epoch', type=int, default=100)
@@ -56,6 +56,7 @@ def get_args_parser():
     parser.add_argument('--all', action='store_true', help='if all, then return all the wsi patches in the wsi, otherwise return patches with the same label as the wsi-level label')
     parser.add_argument('--preload',  action='store_true', help='pred load training samples into RAM')
     parser.add_argument('--weights', default=None, type=str, help='pretrained weights path')
+    parser.add_argument('--dataset', required=True, type=str, help='pretrained weights path')
 
     # parser.add_argument('--model', default='mynet_A_s', type=str, help='name of the model')
     # parser.add_argument('--dataset', default='cam16')
@@ -71,6 +72,8 @@ def get_args_parser():
     # parser.add_argument('--seq_len', default=256, type=int)
     parser.add_argument('--seq_len', default=512, type=int)
     parser.add_argument('--factor', default=5, type=int)
+    parser.add_argument('--fold', default=5, type=int)
+    parser.add_argument('--lr', default=1e-3, type=float)
 
 
                 # if not args.all:
@@ -180,23 +183,57 @@ def main(args):
     # train_dataloader = aa.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=16, num_workers=4)
     # print(dist.get_world_size())
     # train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=True, batch_size=args.batch_size, num_workers=4, num_gpus=dist.get_world_size())
-    train_max_len = args.seq_len * args.mem_len * args.factor
-    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=dist, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False, args=args, max_len=train_max_len)
-    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4)
-    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=64, num_workers=4)
-    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=dist, batch_size=128, num_workers=4, all=args.all, drop_last=False, args=args)
-    val_max_len = args.seq_len * args.mem_len * 2
-    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=dist, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False, args=args, max_len=val_max_len)
-    print(train_max_len, val_max_len)
-    # import sys; sys.exit()
-    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
-    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
-    # val_dataloader = train_dataloader
-    num_classes = dataset.utils.get_num_classes(args.dataset)
+#    train_max_len = args.seq_len * args.mem_len * args.factor
+#    train_dataloader = dataset.utils.build_dataloader(args.dataset, 'train', dist=dist, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False, args=args, max_len=train_max_len)
+#    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4)
+#    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=False, batch_size=64, num_workers=4)
+#    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=dist, batch_size=128, num_workers=4, all=args.all, drop_last=False, args=args)
+#    val_max_len = args.seq_len * args.mem_len * 2
+#    val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=dist, batch_size=args.batch_size, num_workers=4, all=args.all, drop_last=False, args=args, max_len=val_max_len)
+#    print(train_max_len, val_max_len)
+#    # import sys; sys.exit()
+#    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
+#    # val_dataloader = dataset.utils.build_dataloader(args.dataset, 'val', dist=True, batch_size=16, num_workers=4, num_gpus=dist.get_world_size())
+#    # val_dataloader = train_dataloader
+#    num_classes = dataset.utils.get_num_classes(args.dataset)
     # model.vit
     # print(dir(model))
     # net = model.utils.build_model(args.model, num_classes).to(dist.get_rank())
     # net = model.utils.build_model(args.model, num_classes).cuda()
+
+    # def build_dataset(img_set, args):
+
+    dataset1 = dataset.utils.build_dataset('train', args)
+    num_classes = dataset1.num_classes
+
+    dataset2 = dataset.utils.build_dataset('val', args)
+    # num_classes = dataset.num_classes
+
+    train_dataset = torch.utils.data.ConcatDataset([dataset1, dataset2])
+    # train_dataloader = torch.utils.data.Dataloader()
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=1,
+        shuffle=True,
+        num_workers=4,
+        persistent_workers=True,
+        pin_memory=True
+    )
+
+    test_dataset = dataset.utils.build_dataset('test', args)
+
+    test_dataloader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=4,
+        persistent_workers=True,
+        pin_memory=True
+    )
+
+
+#  set   # num_classes = dataset.num_classes
+
     net = model.utils.build_model(args.model, num_classes, args=args).cuda()
 
 
@@ -207,7 +244,7 @@ def main(args):
     # net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[dist.get_rank()])
     # net = torch.nn.parallel.DistributedDataParallel(net)
     # print(net)
-    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
     loss_fn = torch.nn.CrossEntropyLoss()
 
     best_acc = 0
@@ -256,8 +293,12 @@ def main(args):
             #img = data['img'].to(dist.get_rank())
             #label = data['label'].to(dist.get_rank())
             # print(data['img'])
-            img = data['img'].cuda(non_blocking=True)
-            label = data['label'].cuda(non_blocking=True)
+            # img = data['img'].cuda(non_blocking=True)
+            # label = data['label'].cuda(non_blocking=True)
+            img, label = data
+            # print(label)
+            img = img.cuda(non_blocking=True)
+            label = label.cuda(non_blocking=True)
             # print(img.shape)
             # print(img.shape)
             # print(img.shape)
@@ -280,32 +321,33 @@ def main(args):
             # is_last = data['is_last'].to(dist.get_rank())
             # if iter_idx == 180:
             #     break
-            is_last = data['is_last'].cuda(non_blocking=True)
+            # is_last = data['is_last'].cuda(non_blocking=True)
 
             optimizer.zero_grad()
 
-            out, mem = net(img, mem, is_last)
+            # out, mem = net(img, mem, is_last)
+            out = net(img)
             # continue
             # print(out.shape)
                         # if args.debug:
-            with torch.no_grad():
-               # out.soft_max()
-               print(out.shape)
-               pred = out.softmax(dim=1).argmax(dim=-1).detach()
-               # print(pred)
-               #print('pred', pred)
-               #print('label', label)
-               print('iter_acc', (pred == label).sum() / pred.shape[0])
-               #mask = pred == label
-               #l1_mask = mask & (label == 1)
-               #l0_mask = mask & (label == 0)
-               l1_mask = (pred == 1) & (label == 1)
-               l0_mask = (pred == 0) & (label == 0)
-               print('label == 1, iter_acc', l1_mask.sum() / (label == 1).sum())
-               print('label == 0, iter_acc', l0_mask.sum() / (label == 0).sum())
-               if mem is not None:
-                   for m in mem:
-                       print(m.shape)
+            #with torch.no_grad():
+            #   # out.soft_max()
+            #   print(out.shape)
+            #   pred = out.softmax(dim=1).argmax(dim=-1).detach()
+            #   # print(pred)
+            #   #print('pred', pred)
+            #   #print('label', label)
+            #   print('iter_acc', (pred == label).sum() / pred.shape[0])
+            #   #mask = pred == label
+            #   #l1_mask = mask & (label == 1)
+            #   #l0_mask = mask & (label == 0)
+            #   l1_mask = (pred == 1) & (label == 1)
+            #   l0_mask = (pred == 0) & (label == 0)
+            #   print('label == 1, iter_acc', l1_mask.sum() / (label == 1).sum())
+            #   print('label == 0, iter_acc', l0_mask.sum() / (label == 0).sum())
+            #   if mem is not None:
+            #       for m in mem:
+            #           print(m.shape)
                #print('label == 0, iter_acc', l0_mask.sum() / pred.shape[0] * 2)
             # print(out)
 
@@ -315,8 +357,8 @@ def main(args):
 
             t2 = time.time()
             print('epoch {}, iter {}, loss is {:03f}, avg time {:02f}'.format(i, iter_idx, loss, (t2 - t1) / (iter_idx + 1e-8)))
-            if is_last.sum() > 0:
-                print('end of training', is_last)
+            # if is_last.sum() > 0:
+                # print('end of training', is_last)
 
             # for name, param in net.named_parameters():
             #     if param.grad is None:
@@ -369,12 +411,15 @@ def main(args):
                 #     'min': None
                 # }
                 mem = None
-                for data in val_dataloader:
+                # for data in val_dataloader:
+                for data in test_dataloader:
                     # break
                     #img = data['img'].to(dist.get_rank())
                     #label = data['label'].to(dist.get_rank())
-                    img = data['img'].cuda(non_blocking=True)
-                    label = data['label'].cuda(non_blocking=True)
+                    #img = data['img'].cuda(non_blocking=True)
+                    #label = data['label'].cuda(non_blocking=True)
+                    img = img.cuda(non_blocking=True)
+                    label = img.cuda(non_blocking=True)
                     # img = torch.randn((126, 3, 256, 256)).to(dist.get_rank())
                     # img = torch.randn((16, 3, 256, 256)).to(dist.get_rank())
                     # img = torch.randn((32, 3, 256, 256)).to(dist.get_rank())
@@ -392,27 +437,28 @@ def main(args):
                     # print(type(net), net.parameters())
                     # print(data['is_last'])
                     # is_last = data['is_last'].to(dist.get_rank())
-                    is_last = data['is_last'].cuda(non_blocking=True)
+                    # is_last = data['is_last'].cuda(non_blocking=True)
 
 
-                    out, mem = net(img, mem, is_last)
+                    # out, mem = net(img, mem, is_last)
+                    out = net(img)
 
-                    with torch.no_grad():
-                       # out.soft_max()
-                       print(out.shape, iter_idx)
-                       pred = out.softmax(dim=1).argmax(dim=-1).detach()
-                       # print(pred)
-                       #print('pred', pred)
-                       #print('label', label)
-                       print('iter_acc', (pred == label).sum() / pred.shape[0])
-                       #mask = pred == label
-                       #l1_mask = mask & (label == 1)
-                       #l0_mask = mask & (label == 0)
-                       l1_mask = (pred == 1) & (label == 1)
-                       l0_mask = (pred == 0) & (label == 0)
-                       print('label == 1, iter_acc', l1_mask.sum() / (label == 1).sum())
-                       print('label == 0, iter_acc', l0_mask.sum() / (label == 0).sum())
-                       print()
+                    #with torch.no_grad():
+                    #   # out.soft_max()
+                    #   print(out.shape, iter_idx)
+                    #   pred = out.softmax(dim=1).argmax(dim=-1).detach()
+                    #   # print(pred)
+                    #   #print('pred', pred)
+                    #   #print('label', label)
+                    #   print('iter_acc', (pred == label).sum() / pred.shape[0])
+                    #   #mask = pred == label
+                    #   #l1_mask = mask & (label == 1)
+                    #   #l0_mask = mask & (label == 0)
+                    #   l1_mask = (pred == 1) & (label == 1)
+                    #   l0_mask = (pred == 0) & (label == 0)
+                    #   print('label == 1, iter_acc', l1_mask.sum() / (label == 1).sum())
+                    #   print('label == 0, iter_acc', l0_mask.sum() / (label == 0).sum())
+                    #   print()
                     # if is_last.sum() == 0:
                     # if is_last.sum() > 0:
                     #     # print('ccccccccccccccc')

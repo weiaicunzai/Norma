@@ -1,11 +1,16 @@
 import os
+import sys
+sys.path.append(os.getcwd())
+
 import glob
 import cv2
 import json
 import xml.etree.ElementTree as ET
 import numpy as np
 import openslide
+import argparse
 
+from conf.camlon16 import settings
 
 
 
@@ -55,11 +60,7 @@ def xml2json(json_dir, xml_path):
 #dest_file = '/data/ssd1/by/CAMELYON16/training_json/tumor/patch_size_512_at_mag_20_patch_label'
 #mask_dir = '/data/ssd1/by/CAMELYON16/training_mask/tumor/'
 
-anno_dir = '/data/ssd1/by/CAMELYON16/testing/lesion'
-wsi_dir = '/data/ssd1/by/CAMELYON16/testing/images/'
-json_dir = '/data/ssd1/by/CAMELYON16/testing/jsons/patch_size_512_at_mag_20/'
-dest_file = '/data/ssd1/by/CAMELYON16/testing/jsons/patch_size_512_at_mag_20_patch_label'
-mask_dir = '/data/ssd1/by/CAMELYON16/testing/masks/'
+
 
 def xml2mask(xml_path):
     basename = os.path.basename(xml_path).replace('xml', 'png')
@@ -139,6 +140,8 @@ def write_patch_label(wsi_dir, xml_dir, json_dir, dest_dir):
 
     # for xml_path in xml_files(xml_dir):
     #     wsi_path = xml2tif(wsi_dir, xml_path)
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
 
     level = 1
     count = 110
@@ -283,17 +286,42 @@ def write_patch_label(wsi_dir, xml_dir, json_dir, dest_dir):
         assert sss > 0
 
         json_filename = os.path.basename(json_path)
-        print(dest_dir)
         json.dump(res, open(os.path.join(dest_dir, json_filename), 'w'))
 
 
 
+# def get_args_parser():
+#     parser = argparse.ArgumentParser(add_help=False)
+#     parser.add_argument('--dataset', required=True, default=None)
+
+#     return parser.parse_args()
 
 
+if __name__  == '__main__':
+    # args = get_args_parser()
+    # if args.dataset == 'brac':
+    #     from conf.brac import settings
+    # elif args.dataset == 'cam16':
+    # else:
+        # raise ValueError('wrong value error')
 
 
-# draw_mask(wsi_dir=wsi_dir, xml_dir=anno_dir)
-write_patch_label(wsi_dir=wsi_dir, xml_dir=anno_dir, json_dir=json_dir, dest_dir=dest_file)
+# --numGroup 8 \
+# --numGroup_test 8 \
+
+    # anno_dir = '/data/ssd1/by/CAMELYON16/testing/lesion'
+    anno_dir = settings.anno_dir
+    # wsi_dir = '/data/ssd1/by/CAMELYON16/testing/images/'
+    wsi_dir = settings.wsi_dir
+    # json_dir = '/data/ssd1/by/CAMELYON16/testing/jsons/patch_size_512_at_mag_20/'
+    json_dir = settings.json_dir
+    # dest_file = '/data/ssd1/by/CAMELYON16/testing/jsons/patch_size_512_at_mag_20_patch_label'
+    dest_dir = settings.patch_label_dir
+    # mask_dir = '/data/ssd1/by/CAMELYON16/testing/masks/'
+    mask_dir = settings.mask_dir
+
+    # draw_mask(wsi_dir=wsi_dir, xml_dir=anno_dir)
+    write_patch_label(wsi_dir=wsi_dir, xml_dir=anno_dir, json_dir=json_dir, dest_dir=dest_dir)
 
 
 

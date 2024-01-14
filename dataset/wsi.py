@@ -719,12 +719,15 @@ class PatchLabelMixIn:
         # print()
         if json_filename == 'test_114.json':
             print(patch_json_path, 'cccccccccccc')
+            raise ValueError('no test_114 label')
             import sys; sys.exit()
         if os.path.exists(patch_json_path):
             # patch_label = json.dump(patch_json_path)
             patch_label = json.load(open(patch_json_path))
             json_data.update(patch_label)
             # print('updated', patch_json_path)
+        # else:
+        #     print(patch_json_path)
 
         return json_data
 

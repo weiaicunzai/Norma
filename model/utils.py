@@ -1074,6 +1074,11 @@ def build_model(model_name, num_classes, args=None):
         net = vit_base(n_classes=num_classes)
         return net
 
+    if model_name == 'transmil':
+        from .transmil import TransMIL
+        net = TransMIL(n_classes=num_classes)
+        return net
+
     if model_name=='cm_trans':
         from .cmtrans import get_vit256, vit_small
         if args.weights:

@@ -163,6 +163,10 @@ if __name__ == '__main__':
     args = get_args_parser()
     if args.dataset == 'brac':
         from conf.brac import settings
+    elif args.dataset == 'cam16':
+        from conf.camlon16 import settings
+    else:
+        raise ValueError('wrong dataset')
 
     feat_dir = settings.feat_dir
     if not os.path.exists(feat_dir):

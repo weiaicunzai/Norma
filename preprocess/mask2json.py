@@ -187,10 +187,13 @@ class MaskConverter:
         stride = self.kernel_size
 
         row_iter = range(0, int(row), stride)
+        # if direction is in [4, 5, 6, 7]
+        # reverse row
         if direction in [4, 5, 6, 7]:
             row_iter = sorted(row_iter, reverse=True)
-        col_iter = range(0, int(col), stride)
 
+        # if direction is in
+        col_iter = range(0, int(col), stride)
         if direction in [2, 3, 6, 7]:
             col_iter = sorted(col_iter, reverse=True)
 
@@ -199,7 +202,7 @@ class MaskConverter:
             for r_idx in row_iter:
                 for c_idx in col_iter:
                     coords.append((r_idx, c_idx))
-
+        # col first
         else:
             for c_idx in col_iter:
                 for r_idx in row_iter:
@@ -328,9 +331,6 @@ def write_single_json(slide_id, label, settings):
 
     dest_dir = settings.json_dir
 
-    if not os.path.exists(dest_dir):
-        os.makedirs(dest_dir)
-
     json_save_path = os.path.join(dest_dir, json_filename)
     with open(json_save_path, 'w') as f:
         json.dump(res, f)
@@ -360,9 +360,14 @@ if __name__ == '__main__':
     args = get_args_parser()
     if args.dataset == 'brac':
         from conf.brac import settings
+    elif args.dataset == 'cam16':
+        from conf.camlon16 import settings
     else:
-        raise ValueError('wrong data')
+        raise ValueError('wrong dataset')
 
+    dest_dir = settings.json_dir
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
     pool = mp.Pool(processes=4) # computation bound operation
     pool.starmap(partial(write_single_json, settings=settings), get_filenames(settings))
     pool.close()

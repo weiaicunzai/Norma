@@ -15,7 +15,7 @@ import openslide
 sys.path.append(os.getcwd())
 
 
-def write_single_wsi(path, settings, q):
+def write_single_wsi(path, q):
 
     wsi_path, json_path = path
     t1 = time.time()
@@ -26,7 +26,7 @@ def write_single_wsi(path, settings, q):
 
     wsi = openslide.OpenSlide(wsi_path)
 
-    print('reading image {}'.format(wsi_path))
+    print('reading image {}, {}'.format(wsi_path, coords[0][0]))
 
     for coord in coords[0]:
         (x, y), level, (patch_size_x, patch_size_y) = coord
@@ -85,6 +85,10 @@ if __name__ == '__main__':
     args = get_args_parser()
     if args.dataset == 'brac':
         from conf.brac import settings
+    elif args.dataset == 'cam16':
+        from conf.camlon16 import settings
+    else:
+        raise ValueError('wrong dataset')
 
     patch_path = settings.patch_dir
     if not os.path.exists(patch_path):
@@ -93,7 +97,7 @@ if __name__ == '__main__':
     # q = Queue()
     q = Manager().Queue()
     # fn = partial(write_single_wsi, settings=settings, q=q)
-    fn = partial(write_single_wsi, settings=settings, q=q)
+    fn = partial(write_single_wsi, q=q)
 
     db_size = 1 << 42
     print(settings.patch_dir)

@@ -151,3 +151,17 @@ filter_broken_files
 mask2json_log
 preprocess_data.sh
 test_dataset.sh
+transmil_cam16
+write_cam16_lmdb
+write_cam16_lmdb_1
+write_cam16_lmdb_2
+write_feat_to_disk
+write_to_json
+write_to_lmdb
+write_to_lmdb1
+ss1
+seg_brac_tissue
+mask2json_cam16
+cc.sh
+bwh_biopsy_csv
+test1.pt

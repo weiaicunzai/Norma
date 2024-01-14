@@ -662,6 +662,28 @@ def build_transforms(img_set):
 
 
 
+def build_dataset(img_set, args):
+    if args.dataset == 'cam16_slide':
+        from dataset.slidedataset import SlideDataset
+        from conf.camlon16 import settings
+        dataset = SlideDataset(
+            img_set,
+            settings,
+            args.fold,
+        )
+        dataset.num_classes = settings.num_classes
+
+    if args.dataset == 'brac_slide':
+        from dataset.slidedataset import SlideDataset
+        from conf.brac import settings
+        dataset = SlideDataset(
+            img_set,
+            settings,
+            args.fold
+        )
+
+    return dataset
+
 
 # def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None, all=True, drop_last=True):
 def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=True, drop_last=True, max_len=None, args=None):

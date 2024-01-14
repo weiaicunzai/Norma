@@ -1,45 +1,70 @@
+from pathlib import Path
 
-# import os
+#---->read yaml
+import yaml
+from addict import Dict
+def read_yaml(fpath=None):
+    with open(fpath, mode="r") as file:
+        yml = yaml.load(file, Loader=yaml.Loader)
+        return Dict(yml)
 
-# import glob
-# import torch.distributed as dist
-# # from conf import camlon16
+#---->load Loggers
+from pytorch_lightning import loggers as pl_loggers
+def load_loggers(cfg):
 
-# def init_process():
-#     """ Initialize the distributed environment. """
-#     rank = int(os.environ['LOCAL_RANK'])
-#     size = int(os.environ['LOCAL_WORLD_SIZE'])
-#     # os.environ['MASTER_PORT'] = '29500'
-#     # dist.init_process_group(backend, rank=rank, world_size=size)
-#     # print(size, '............................', os.environ["CUDA_VISIBLE_DEVICES"])
-#     # dist.init_process_group('nccl', rank=rank, world_size=size)
-#     dist.init_process_group('gloo', rank=rank, world_size=size)
-#     # fn(rank, size)
+    log_path = cfg.General.log_path
+    Path(log_path).mkdir(exist_ok=True, parents=True)
+    log_name = Path(cfg.config).parent
+    version_name = Path(cfg.config).name[:-5]
+    cfg.log_path = Path(log_path) / log_name / version_name / f'fold{cfg.Data.fold}'
+    print(f'---->Log dir: {cfg.log_path}')
 
+    #---->TensorBoard
+    tb_logger = pl_loggers.TensorBoardLogger(log_path+str(log_name),
+                                             name = version_name, version = f'fold{cfg.Data.fold}',
+                                             log_graph = True, default_hp_metric = False)
+    #---->CSV
+    csv_logger = pl_loggers.CSVLogger(log_path+str(log_name),
+                                      name = version_name, version = f'fold{cfg.Data.fold}', )
 
-# def cycle(iterable):
-#     while True:
-#         for data in iterable:
-#             yield data
-
-
-
-
-# def camlon16_wsi_filenames(data_set):
-#     outputs = []
-#     if data_set == 'train':
-#         dirs = camlon16.train_dirs
-#     else:
-#         dirs = camlon16.test_dirs
+    return [tb_logger, csv_logger]
 
 
-#     for wsi_dir, json_dir in zip(dirs['wsis'], dirs['jsons']):
-#         for wsi_path in glob.iglob(os.path.join(wsi_dir, '**', '*.tif'), recursive=True):
-#             basename = os.path.basename(wsi_path)
-#             json_path = os.path.join(json_dir, basename.replace('.tif', '.json'))
-#             outputs.append({
-#                 'wsi': wsi_path,
-#                 'json': json_path
-#             })
+#---->load Callback
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+def load_callbacks(cfg):
 
-#     return outputs
+    Mycallbacks = []
+    # Make output path
+    output_path = cfg.log_path
+    output_path.mkdir(exist_ok=True, parents=True)
+
+    early_stop_callback = EarlyStopping(
+        monitor='val_loss',
+        min_delta=0.00,
+        patience=cfg.General.patience,
+        verbose=True,
+        mode='min'
+    )
+    # Mycallbacks.append(early_stop_callback)
+
+    if cfg.General.server == 'train' :
+        Mycallbacks.append(ModelCheckpoint(monitor = 'val_loss',
+                                         dirpath = str(cfg.log_path),
+                                         filename = '{epoch:02d}-{val_loss:.4f}',
+                                         verbose = True,
+                                         save_last = True,
+                                         save_top_k = 1,
+                                         mode = 'min',
+                                         save_weights_only = True))
+    return Mycallbacks
+
+#---->val loss
+import torch
+import torch.nn.functional as F
+def cross_entropy_torch(x, y):
+    x_softmax = [F.softmax(x[i]) for i in range(len(x))]
+    x_log = torch.tensor([torch.log(x_softmax[i][y[i]]) for i in range(len(y))])
+    loss = - torch.sum(x_log) / len(y)
+    return loss

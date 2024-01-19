@@ -46,21 +46,34 @@ class PPEG(nn.Module):
 class TransMIL(nn.Module):
     def __init__(self, n_classes):
         super(TransMIL, self).__init__()
-        self.pos_layer = PPEG(dim=512)
-        self._fc1 = nn.Sequential(nn.Linear(1024, 512), nn.ReLU())
-        self.cls_token = nn.Parameter(torch.randn(1, 1, 512))
+        # net_dim = 512
+        net_dim = 384
+        # self.pos_layer = PPEG(dim=512)
+        self.pos_layer = PPEG(dim=net_dim)
+        # self._fc1 = nn.Sequential(nn.Linear(1024, 512), nn.ReLU())
+        self._fc1 = nn.Sequential(nn.Linear(1024, net_dim), nn.ReLU())
+        # self.cls_token = nn.Parameter(torch.randn(1, 1, 512))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, net_dim))
         self.n_classes = n_classes
-        self.layer1 = TransLayer(dim=512)
-        self.layer2 = TransLayer(dim=512)
-        self.norm = nn.LayerNorm(512)
-        self._fc2 = nn.Linear(512, self.n_classes)
+        # self.layer1 = TransLayer(dim=512)
+        self.layer1 = TransLayer(dim=net_dim)
+        # self.layer2 = TransLayer(dim=512)
+        self.layer2 = TransLayer(dim=net_dim)
+        # self.norm = nn.LayerNorm(512)
+        self.norm = nn.LayerNorm(net_dim)
+        # self._fc2 = nn.Linear(512, self.n_classes)
+        self._fc2 = nn.Linear(net_dim, self.n_classes)
 
 
         # self.mem_length = 20
         # self.mem_length = int(512 * 78 * 2 / (512 * 2) / 2)
         # self.mem_length = 4
         # self.mem_length = 2
-        self.mem_length = 8
+        # self.mem_length = 8
+        # self.mem_length = 8
+        # self.mem_length = 78
+        self.mem_length = int(512 * 78 * 2 / (512 * 2) / 2)
+        print('net_dim', net_dim, 'mem_length', self.mem_length)
 
     def _update_mems(self, mems, h):
 
@@ -85,8 +98,8 @@ class TransMIL(nn.Module):
 
         h = self._fc1(h) #[B, n, 512]
 
-        # if mems is not None:
-            # h = torch.cat((h, mems), dim=1)
+        if mems is not None:
+            h = torch.cat((h, mems), dim=1)
 
         #---->pad
         H = h.shape[1]
@@ -108,7 +121,7 @@ class TransMIL(nn.Module):
         #---->Translayer x2
         h = self.layer2(h) #[B, N, 512]
 
-        # mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
+        mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
 
         #---->cls_token
         h = self.norm(h)[:,0]

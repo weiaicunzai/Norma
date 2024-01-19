@@ -49,7 +49,6 @@ class WSIDatasetNaive(IterableDataset):
             num_samples = math.ceil(len(wsis) / num_replicas)
             subsample = wsis[rank * num_samples: (rank + 1) * num_samples]
 
-
             # make sure each gpu acclocated the same number of wsis
             if len(subsample) < num_samples:
                 diff = num_samples - len(subsample)

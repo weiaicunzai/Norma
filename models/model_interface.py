@@ -152,9 +152,9 @@ class  ModelInterface(pl.LightningModule):
             self.mems = None
 
         if self.mems is not None:
-            print(self.mems.shape)
+            print('mems', self.mems.shape)
         else:
-            print(self.mems)
+            print('mems', self.mems)
 
         logits = results_dict['logits']
         Y_prob = results_dict['Y_prob']
@@ -324,9 +324,9 @@ class  ModelInterface(pl.LightningModule):
                 self.mems = None
 
             if self.mems is not None:
-                print(self.mems.shape)
+                print('mems', self.mems.shape)
             else:
-                print(self.mems)
+                print('mems', self.mems)
 
         logits = results_dict['logits']
         Y_prob = results_dict['Y_prob']
@@ -366,7 +366,6 @@ class  ModelInterface(pl.LightningModule):
         # print(self.v)
 
         return {'logits' : logits, 'Y_prob' : Y_prob, 'Y_hat' : Y_hat, 'label' : label}
-
 
     # def validation_epoch_end(self, val_step_outputs):
     def on_validation_epoch_end(self):
@@ -415,7 +414,7 @@ class  ModelInterface(pl.LightningModule):
         res = self.wsi_level_acc(self.val_probs, self.val_labels, self.test_metrics)
         print('val performance, all {} '.format(res))
 
-        res = self.wsi_level_acc(self.train_probs, self.train_labels, self.valid_metrics, last_half=True)
+        res = self.wsi_level_acc(self.val_probs, self.val_labels, self.test_metrics, last_half=True)
         print('val performance, last half {} '.format(res))
         # print('valid_old')
         # for k, v in self.valid_results_old.items():

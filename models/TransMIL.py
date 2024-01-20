@@ -47,7 +47,7 @@ class TransMIL(nn.Module):
     def __init__(self, n_classes):
         super(TransMIL, self).__init__()
         # net_dim = 512
-        net_dim = 384
+        net_dim = 512
         # self.pos_layer = PPEG(dim=512)
         self.pos_layer = PPEG(dim=net_dim)
         # self._fc1 = nn.Sequential(nn.Linear(1024, 512), nn.ReLU())
@@ -72,7 +72,8 @@ class TransMIL(nn.Module):
         # self.mem_length = 8
         # self.mem_length = 8
         # self.mem_length = 78
-        self.mem_length = int(512 * 78 * 2 / (512 * 2) / 2)
+        # self.mem_length = int(512 * 78 * 2 / (512 * 2) / 2)
+        self.mem_length = 39
         print('net_dim', net_dim, 'mem_length', self.mem_length)
 
     def _update_mems(self, mems, h):

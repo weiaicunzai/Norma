@@ -145,6 +145,7 @@ class  ModelInterface(pl.LightningModule):
         # data, label, slide_id = batch
         data, label, slide_id, is_last = batch
         # print('train_slide', slide_id, 'label', label, 'is_last', is_last)
+        print(label)
 
         results_dict = self.model(data=data, label=label, mems=self.mems)
         self.mems = results_dict['mems']
@@ -166,14 +167,18 @@ class  ModelInterface(pl.LightningModule):
         loss = self.loss(logits, label)
 
         #---->acc log
-        Y_hat = int(Y_hat)
-        Y = int(label)
+        #Y_hat = int(Y_hat)
+        #Y = int(label)
+
+        Y_hat = Y_hat
+        Y = label
 
         # print(Y_prob.shape,  label.shape)
 
         # added
-        self.training_step_outputs[Y]["count"] += 1
-        self.training_step_outputs[Y]["correct"] += (Y_hat == Y)
+        for y_hat, y in zip(Y_hat, Y):
+            self.training_step_outputs[y]["count"] += 1
+            self.training_step_outputs[y]["correct"] += (y_hat == y)
 
 
         #################################
@@ -337,9 +342,13 @@ class  ModelInterface(pl.LightningModule):
 
 
         #---->acc log
-        Y = int(label)
-        self.data[Y]["count"] += 1
-        self.data[Y]["correct"] += (Y_hat.item() == Y)
+        Y = label
+        for y_hat, y in zip(Y_hat, Y):
+            self.data[y]["count"] += 1
+            self.data[y]["correct"] += (y_hat.item() == y)
+
+
+
 
         self.validation_step_outputs.append(
             {'logits' : logits, 'Y_prob' : Y_prob, 'Y_hat' : Y_hat, 'label' : label}
@@ -374,7 +383,7 @@ class  ModelInterface(pl.LightningModule):
 
         logits = torch.cat([x['logits'] for x in val_step_outputs], dim = 0)
         probs = torch.cat([x['Y_prob'] for x in val_step_outputs], dim = 0)
-        max_probs = torch.stack([x['Y_hat'] for x in val_step_outputs])
+        # max_probs = torch.stack([x['Y_hat'] for x in val_step_outputs])
         target = torch.stack([x['label'] for x in val_step_outputs], dim = 0)
 
         #---->

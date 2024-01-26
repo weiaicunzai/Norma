@@ -53,7 +53,8 @@ class TransMIL(nn.Module):
         self.pos_layer = PPEG(dim=net_dim)
         # self._fc1 = nn.Sequential(nn.Linear(1024, 512), nn.ReLU())
         # self._fc1 = nn.Sequential(nn.Linear(1024, net_dim), nn.ReLU())
-        input_dim = 348
+        input_dim = 384
+        # input_dim = 1024
         self._fc1 = nn.Sequential(nn.Linear(input_dim, net_dim), nn.ReLU())
         # self.cls_token = nn.Parameter(torch.randn(1, 1, 512))
         self.cls_token = nn.Parameter(torch.randn(1, 1, net_dim))
@@ -99,11 +100,13 @@ class TransMIL(nn.Module):
 
         # is_last = kwargs['is_last'].float() #[B, n, 1024]
         mems = kwargs.get('mems', None)
+        # print(h.shape, 'ccccccccccc')
+        # torch.Size([2, 1024, 384])
 
         h = self._fc1(h) #[B, n, 512]
 
-        if mems is not None:
-            h = torch.cat((h, mems), dim=1)
+        # if mems is not None:
+            # h = torch.cat((h, mems), dim=1)
 
         #---->pad
         H = h.shape[1]
@@ -125,7 +128,7 @@ class TransMIL(nn.Module):
         #---->Translayer x2
         h = self.layer2(h) #[B, N, 512]
 
-        mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
+        # mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
 
         #---->cls_token
         h = self.norm(h)[:,0]

@@ -144,7 +144,8 @@ class CamelData1(data.Dataset):
 
 
 
-class CamelData(data.IterableDataset):
+class CamelData2(data.IterableDataset):
+    """使用dftm的预训练权重"""
     def __init__(self, dataset_cfg=None,
                  state=None):
         # Set all input args as attributes
@@ -219,22 +220,208 @@ class CamelData(data.IterableDataset):
         # self.seq_length = int(20000 / 4)
         # self.wsi_length = 10
 
+    # def load_slide
+
     def read_data(self, slide_id):
         #tmp = []
         #for feat in self.feats[slide_id]:
         #    tmp.append(feat['feature'])
         #    label = feat['label']
 
-        try:
-            feat = [x['feature'] for x in self.feats[slide_id]]
-        except Exception as e:
-            print(self.state, 'cccccccccccccccccccccccccccccc')
-            raise e
+        # try:
+        # except Exception as e:
+            # print(self.state, 'cccccccccccccccccccccccccccccc')
+            # raise e
+
+        feat = [x['feature'] for x in self.feats[slide_id]]
+        feat = torch.tensor(np.array(feat))
+        return feat
+
+    def pad_seq(self, features):
+        fact = self.wsi_length / features.shape[0] + 1
+        # print(features[:, 4], fact)
+        features = features.repeat(int(fact), 1)
+        # print(features[:, 4], 'after repeat....')
+        features = features[:self.wsi_length]
+        # print(features[:, 4], 'after indexing....')
+        assert features.shape[0] == self.wsi_length
+
+        return features
+
+    # def __len__(self):
+    #     return len(self.data)
+
+    def __iter__(self):
+
+        idxes = list(range(len(self.data)))
+
+        if self.state == 'train':
+            random.shuffle(idxes)
+
+        for idx in idxes:
+            slide_id = self.data[idx]
+            label = int(self.label[idx])
+            # full_path = Path(self.feature_dir) / f'{slide_id}.pt'
+            # features = torch.load(full_path)
+            # features = self.feats[slide_id]
+            features = self.read_data(slide_id)
+
+            # features = features[:4]
+            # print(features[:, 4], self.wsi_length)
+
+            #----> shuffle
+            if self.shuffle == True:
+                index = [x for x in range(features.shape[0])]
+                random.shuffle(index)
+                features = features[index]
+
+            features = self.pad_seq(features)
+
+            # yield features, label, slide_id
+            # before_features = features.clone()
+#            # print('before', before_features[:, 4], features[:, 4], 'after', self.wsi_length)
+#
+#            # for
+#            assert self.wsi_length % self.seq_length == 0
+#
+            num_chunks = self.wsi_length / self.seq_length
+            count = 0
+            for chunk in features.chunk(int(num_chunks), dim=0):
+                count += 1
+                if count == num_chunks:
+                    is_last = 1
+                else:
+                    is_last = 0
+
+#
+                print(chunk.shape)
+#
+                yield chunk, label, slide_id, is_last
+#
+
+
+
+
+class CamelData1(data.IterableDataset):
+    """our (seq) dino dim 384"""
+    def __init__(self, dataset_cfg=None,
+                 state=None):
+        # Set all input args as attributes
+        self.__dict__.update(locals())
+        self.dataset_cfg = dataset_cfg
+
+        #---->data and label
+        self.nfolds = self.dataset_cfg.nfold
+        self.fold = self.dataset_cfg.fold
+        self.feature_dir = self.dataset_cfg.data_dir
+        self.csv_dir = self.dataset_cfg.label_dir + f'fold{self.fold}.csv'
+        self.slide_data = pd.read_csv(self.csv_dir, index_col=0)
+
+        #---->order
+        self.shuffle = self.dataset_cfg.data_shuffle
+        self.state = state
+
+        #---->split dataset
+        if state == 'train':
+            self.data = self.slide_data.loc[:, 'train'].dropna()
+            self.label = self.slide_data.loc[:, 'train_label'].dropna()
+            pd.set_option('display.max_rows', None)
+
+
+            val = self.slide_data.loc[:, 'val'].dropna()
+            val_label = self.slide_data.loc[:, 'val_label'].dropna()
+            # print(val)
+
+
+            self.data = pd.concat([self.data, val], axis=0).reset_index(drop=True)
+            self.label = pd.concat([self.label, val_label], axis=0).reset_index(drop=True)
+            # print(self.data)
+
+
+            # print(type(self.data.loc[[3, 4]]))
+            # print(self.data)
+            # self.data.iloc[[0, 1]] = self.data.loc[[3, 4]]
+            # print(self.data)
+
             # import sys; sys.exit()
 
+            # 270
 
-        # feat = torch.tensor(np.array(tmp))
-        feat = torch.tensor(np.array(feat))
+            # self.feats = pickle.load(open('/data/smb/syh/WSI_cls/mDATA_train.pkl', 'rb'))
+
+        if state == 'val':
+            # self.data = self.slide_data.loc[:, 'val'].dropna()
+            # self.label = self.slide_data.loc[:, 'val_label'].dropna()
+
+            self.data = self.slide_data.loc[:, 'test'].dropna()
+            self.label = self.slide_data.loc[:, 'test_label'].dropna()
+
+            self.label = self.label[self.label != 'test_114'].reset_index(drop=True)
+            self.data = self.data[self.data != 'test_114'].reset_index(drop=True)
+
+            self.label = self.label[self.label != 'test_124'].reset_index(drop=True)
+            self.data = self.data[self.data != 'test_124'].reset_index(drop=True)
+
+            # self.feats = pickle.load(open('/data/smb/syh/WSI_cls/mDATA_test.pkl', 'rb'))
+
+        if state == 'test':
+            self.data = self.slide_data.loc[:, 'test'].dropna()
+            self.label = self.slide_data.loc[:, 'test_label'].dropna()
+
+        # self.wsi_length = 40000 * 2
+        self.wsi_length = 512 * 78 * 2
+        # self.seq_length = int(20000 / 2)
+        # self.seq_length = 10000
+        # self.seq_length = 5000
+        # self.seq_length = 2000
+        self.seq_length = 512 * 2
+        # self.seq_length = int(20000 / 4)
+        # self.wsi_length = 10
+
+    def read_data(self, slide_id):
+        #tmp = []
+        #for feat in self.feats[slide_id]:
+        #    tmp.append(feat['feature'])
+        #    label = feat['label']
+        from conf.camlon16 import settings
+
+        json_path = os.path.join(settings.json_dir, slide_id + '.json')
+
+
+        wsi =  WSIJSON(
+                    json_path=json_path,
+                    direction=0
+        )
+        env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
+        # with env.
+        with env.begin(write=False) as txn:
+            output = []
+            for i in wsi:
+               patch_id = i['patch_id']
+                           # label = 0
+               # for d in data:
+               patch_id = i['patch_id']
+               img_stream = txn.get(patch_id.encode())
+               feat = unpack('384f', img_stream)
+               output.append(feat)
+
+        feat = torch.tensor(output)
+        # print(feat.shape, 'cccccccccc')
+        # import sys; sys.exit()
+
+
+
+
+        # try:
+        #     feat = [x['feature'] for x in self.feats[slide_id]]
+        # except Exception as e:
+        #     print(self.state, 'cccccccccccccccccccccccccccccc')
+        #     raise e
+        #     # import sys; sys.exit()
+
+
+        # # feat = torch.tensor(np.array(tmp))
+        # feat = torch.tensor(np.array(feat))
         # print(feat.shape)
         return feat
 
@@ -300,6 +487,551 @@ class CamelData(data.IterableDataset):
                 yield chunk, label, slide_id, is_last
 #
 
+
+
+
+class CamelData11(data.IterableDataset):
+    """clam resnet1024 ours"""
+    def __init__(self, dataset_cfg=None,
+                 state=None):
+        # Set all input args as attributes
+        self.__dict__.update(locals())
+        self.dataset_cfg = dataset_cfg
+
+        #---->data and label
+        self.nfolds = self.dataset_cfg.nfold
+        self.fold = self.dataset_cfg.fold
+        self.feature_dir = self.dataset_cfg.data_dir
+        self.csv_dir = self.dataset_cfg.label_dir + f'fold{self.fold}.csv'
+        self.slide_data = pd.read_csv(self.csv_dir, index_col=0)
+
+        #---->order
+        self.shuffle = self.dataset_cfg.data_shuffle
+        self.state = state
+
+        #---->split dataset
+        if state == 'train':
+            self.data = self.slide_data.loc[:, 'train'].dropna()
+            self.label = self.slide_data.loc[:, 'train_label'].dropna()
+            pd.set_option('display.max_rows', None)
+
+
+            val = self.slide_data.loc[:, 'val'].dropna()
+            val_label = self.slide_data.loc[:, 'val_label'].dropna()
+            # print(val)
+
+
+            self.data = pd.concat([self.data, val], axis=0).reset_index(drop=True)
+            self.label = pd.concat([self.label, val_label], axis=0).reset_index(drop=True)
+            # print(self.data)
+
+
+            # print(type(self.data.loc[[3, 4]]))
+            # print(self.data)
+            # self.data.iloc[[0, 1]] = self.data.loc[[3, 4]]
+            # print(self.data)
+
+            # import sys; sys.exit()
+
+            # 270
+
+            # self.feats = pickle.load(open('/data/smb/syh/WSI_cls/mDATA_train.pkl', 'rb'))
+
+        if state == 'val':
+            # self.data = self.slide_data.loc[:, 'val'].dropna()
+            # self.label = self.slide_data.loc[:, 'val_label'].dropna()
+
+            self.data = self.slide_data.loc[:, 'test'].dropna()
+            self.label = self.slide_data.loc[:, 'test_label'].dropna()
+
+            # self.label = self.label[self.label != 'test_114'].reset_index(drop=True)
+            # self.data = self.data[self.data != 'test_114'].reset_index(drop=True)
+
+            # self.label = self.label[self.label != 'test_124'].reset_index(drop=True)
+            # self.data = self.data[self.data != 'test_124'].reset_index(drop=True)
+
+            # self.feats = pickle.load(open('/data/smb/syh/WSI_cls/mDATA_test.pkl', 'rb'))
+
+        if state == 'test':
+            self.data = self.slide_data.loc[:, 'test'].dropna()
+            self.label = self.slide_data.loc[:, 'test_label'].dropna()
+
+        # self.wsi_length = 40000 * 2
+        self.wsi_length = 512 * 78 * 2
+        # self.seq_length = int(20000 / 2)
+        # self.seq_length = 10000
+        # self.seq_length = 5000
+        # self.seq_length = 2000
+        self.seq_length = 512 * 2
+        # self.seq_length = int(20000 / 4)
+        # self.wsi_length = 10
+
+    def read_data(self, slide_id):
+        #tmp = []
+        # for feat in self.feats[slide_id]:
+        #    tmp.append(feat['feature'])
+        #    label = feat['label']
+        # from conf.camlon16 import settings
+
+        # json_path = os.path.join(settings.json_dir, slide_id + '.json')
+        pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam/feature/pt_files/', slide_id + '.pt')
+
+
+        # wsi =  WSIJSON(
+                    # json_path=json_path,
+                    # direction=0
+        # )
+        # env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
+        # with env.
+        # with env.begin(write=False) as txn:
+        #     output = []
+        #     for i in wsi:
+        #        patch_id = i['patch_id']
+        #                    # label = 0
+        #        # for d in data:
+        #        patch_id = i['patch_id']
+        #        img_stream = txn.get(patch_id.encode())
+        #        feat = unpack('384f', img_stream)
+        #        output.append(feat)
+        # print(pt_file)
+        feat = torch.load(pt_file)
+        # print(feats.shape)
+        # import sys; sys.exit()
+
+    #     feat = torch.tensor(output)
+        # print(feat.shape, 'cccccccccc')
+        # import sys; sys.exit()
+
+
+
+
+        # try:
+        #     feat = [x['feature'] for x in self.feats[slide_id]]
+        # except Exception as e:
+        #     print(self.state, 'cccccccccccccccccccccccccccccc')
+        #     raise e
+        #     # import sys; sys.exit()
+
+
+        # # feat = torch.tensor(np.array(tmp))
+        # feat = torch.tensor(np.array(feat))
+        # print(feat.shape)
+        return feat
+
+    def pad_seq(self, features):
+        fact = self.wsi_length / features.shape[0] + 1
+        # print(features[:, 4], fact)
+        features = features.repeat(int(fact), 1)
+        # print(features[:, 4], 'after repeat....')
+        features = features[:self.wsi_length]
+        # print(features[:, 4], 'after indexing....')
+        assert features.shape[0] == self.wsi_length
+
+        return features
+
+    # def __len__(self):
+    #     return len(self.data)
+
+    def __iter__(self):
+
+        idxes = list(range(len(self.data)))
+
+        if self.state == 'train':
+            random.shuffle(idxes)
+
+        for idx in idxes:
+            slide_id = self.data[idx]
+            label = int(self.label[idx])
+            # full_path = Path(self.feature_dir) / f'{slide_id}.pt'
+            # features = torch.load(full_path)
+            # features = self.feats[slide_id]
+            features = self.read_data(slide_id)
+
+            # features = features[:4]
+            # print(features[:, 4], self.wsi_length)
+
+            #----> shuffle
+            if self.shuffle == True:
+                index = [x for x in range(features.shape[0])]
+                random.shuffle(index)
+                features = features[index]
+
+            features = self.pad_seq(features)
+
+            # yield features, label, slide_id
+            # before_features = features.clone()
+#            # print('before', before_features[:, 4], features[:, 4], 'after', self.wsi_length)
+#
+#            # for
+#            assert self.wsi_length % self.seq_length == 0
+#
+            num_chunks = self.wsi_length / self.seq_length
+            count = 0
+            for chunk in features.chunk(int(num_chunks), dim=0):
+                count += 1
+                if count == num_chunks:
+                    is_last = 1
+                else:
+                    is_last = 0
+
+#
+                print(chunk.shape)
+#
+                yield chunk, label, slide_id, is_last
+#
+
+
+
+
+class CamelData(data.IterableDataset):
+    """clam dino 384 ours"""
+    def __init__(self, dataset_cfg=None,
+                 state=None):
+        # Set all input args as attributes
+        self.__dict__.update(locals())
+        self.dataset_cfg = dataset_cfg
+
+        #---->data and label
+        self.nfolds = self.dataset_cfg.nfold
+        self.fold = self.dataset_cfg.fold
+        self.feature_dir = self.dataset_cfg.data_dir
+        self.csv_dir = self.dataset_cfg.label_dir + f'fold{self.fold}.csv'
+        self.slide_data = pd.read_csv(self.csv_dir, index_col=0)
+
+        #---->order
+        self.shuffle = self.dataset_cfg.data_shuffle
+        self.state = state
+
+        #---->split dataset
+        if state == 'train':
+            self.data = self.slide_data.loc[:, 'train'].dropna()
+            self.label = self.slide_data.loc[:, 'train_label'].dropna()
+            pd.set_option('display.max_rows', None)
+
+
+            val = self.slide_data.loc[:, 'val'].dropna()
+            val_label = self.slide_data.loc[:, 'val_label'].dropna()
+            # print(val)
+
+
+            self.data = pd.concat([self.data, val], axis=0).reset_index(drop=True)
+            self.label = pd.concat([self.label, val_label], axis=0).reset_index(drop=True)
+            # print(self.data)
+
+
+            # print(type(self.data.loc[[3, 4]]))
+            # print(self.data)
+            # self.data.iloc[[0, 1]] = self.data.loc[[3, 4]]
+            # print(self.data)
+
+            # import sys; sys.exit()
+
+            # 270
+
+            # self.feats = pickle.load(open('/data/smb/syh/WSI_cls/mDATA_train.pkl', 'rb'))
+
+        if state == 'val':
+            # self.data = self.slide_data.loc[:, 'val'].dropna()
+            # self.label = self.slide_data.loc[:, 'val_label'].dropna()
+
+            self.data = self.slide_data.loc[:, 'test'].dropna()
+            self.label = self.slide_data.loc[:, 'test_label'].dropna()
+
+            # self.label = self.label[self.label != 'test_114'].reset_index(drop=True)
+            # self.data = self.data[self.data != 'test_114'].reset_index(drop=True)
+
+            # self.label = self.label[self.label != 'test_124'].reset_index(drop=True)
+            # self.data = self.data[self.data != 'test_124'].reset_index(drop=True)
+
+            # self.feats = pickle.load(open('/data/smb/syh/WSI_cls/mDATA_test.pkl', 'rb'))
+
+        if state == 'test':
+            self.data = self.slide_data.loc[:, 'test'].dropna()
+            self.label = self.slide_data.loc[:, 'test_label'].dropna()
+
+        # self.wsi_length = 40000 * 2
+        self.wsi_length = 512 * 78 * 2
+        # self.seq_length = int(20000 / 2)
+        # self.seq_length = 10000
+        # self.seq_length = 5000
+        # self.seq_length = 2000
+        self.seq_length = 512 * 2
+        # self.seq_length = int(20000 / 4)
+        # self.wsi_length = 10
+
+    def read_data(self, slide_id):
+
+        path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_use_pretrain/feature/pt_files'
+        # path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_not_use_pretrain/feature/pt_files/'
+
+        pt_file = os.path.join(path, slide_id + '.pt')
+        print('reading from {}'.format(path))
+
+        feat = torch.load(pt_file)
+
+        return feat
+
+    def pad_seq(self, features):
+        fact = self.wsi_length / features.shape[0] + 1
+        # print(features[:, 4], fact)
+        features = features.repeat(int(fact), 1)
+        # print(features[:, 4], 'after repeat....')
+        features = features[:self.wsi_length]
+        # print(features[:, 4], 'after indexing....')
+        assert features.shape[0] == self.wsi_length
+
+        return features
+
+    # def __len__(self):
+    #     return len(self.data)
+
+    def __iter__(self):
+
+        idxes = list(range(len(self.data)))
+
+        if self.state == 'train':
+            random.shuffle(idxes)
+
+        for idx in idxes:
+            slide_id = self.data[idx]
+            label = int(self.label[idx])
+            # full_path = Path(self.feature_dir) / f'{slide_id}.pt'
+            # features = torch.load(full_path)
+            # features = self.feats[slide_id]
+            features = self.read_data(slide_id)
+
+            # features = features[:4]
+            # print(features[:, 4], self.wsi_length)
+
+            #----> shuffle
+            if self.shuffle == True:
+                index = [x for x in range(features.shape[0])]
+                random.shuffle(index)
+                features = features[index]
+
+            features = self.pad_seq(features)
+
+            yield features, label, slide_id
+
+            # yield features, label, slide_id
+            # before_features = features.clone()
+#            # print('before', before_features[:, 4], features[:, 4], 'after', self.wsi_length)
+#
+#            # for
+#            assert self.wsi_length % self.seq_length == 0
+#
+            # num_chunks = self.wsi_length / self.seq_length
+            # count = 0
+#             for chunk in features.chunk(int(num_chunks), dim=0):
+#                 count += 1
+#                 if count == num_chunks:
+#                     is_last = 1
+#                 else:
+#                     is_last = 0
+
+# #
+#                 print(chunk.shape)
+# #
+#                 yield chunk, label, slide_id, is_last
+# #
+
+
+
+
+class CamelData111(data.IterableDataset):
+    """clam resnet1024 ours"""
+    def __init__(self, dataset_cfg=None,
+                 state=None):
+        # Set all input args as attributes
+        self.__dict__.update(locals())
+        self.dataset_cfg = dataset_cfg
+
+        #---->data and label
+        self.nfolds = self.dataset_cfg.nfold
+        self.fold = self.dataset_cfg.fold
+        self.feature_dir = self.dataset_cfg.data_dir
+        self.csv_dir = self.dataset_cfg.label_dir + f'fold{self.fold}.csv'
+        self.slide_data = pd.read_csv(self.csv_dir, index_col=0)
+
+        #---->order
+        self.shuffle = self.dataset_cfg.data_shuffle
+        self.state = state
+
+        #---->split dataset
+        if state == 'train':
+            self.data = self.slide_data.loc[:, 'train'].dropna()
+            self.label = self.slide_data.loc[:, 'train_label'].dropna()
+            pd.set_option('display.max_rows', None)
+
+
+            val = self.slide_data.loc[:, 'val'].dropna()
+            val_label = self.slide_data.loc[:, 'val_label'].dropna()
+            # print(val)
+
+
+            self.data = pd.concat([self.data, val], axis=0).reset_index(drop=True)
+            self.label = pd.concat([self.label, val_label], axis=0).reset_index(drop=True)
+            # print(self.data)
+
+
+            # print(type(self.data.loc[[3, 4]]))
+            # print(self.data)
+            # self.data.iloc[[0, 1]] = self.data.loc[[3, 4]]
+            # print(self.data)
+
+            # import sys; sys.exit()
+
+            # 270
+
+            # self.feats = pickle.load(open('/data/smb/syh/WSI_cls/mDATA_train.pkl', 'rb'))
+
+        if state == 'val':
+            # self.data = self.slide_data.loc[:, 'val'].dropna()
+            # self.label = self.slide_data.loc[:, 'val_label'].dropna()
+
+            self.data = self.slide_data.loc[:, 'test'].dropna()
+            self.label = self.slide_data.loc[:, 'test_label'].dropna()
+
+            # self.label = self.label[self.label != 'test_114'].reset_index(drop=True)
+            # self.data = self.data[self.data != 'test_114'].reset_index(drop=True)
+
+            # self.label = self.label[self.label != 'test_124'].reset_index(drop=True)
+            # self.data = self.data[self.data != 'test_124'].reset_index(drop=True)
+
+            # self.feats = pickle.load(open('/data/smb/syh/WSI_cls/mDATA_test.pkl', 'rb'))
+
+        if state == 'test':
+            self.data = self.slide_data.loc[:, 'test'].dropna()
+            self.label = self.slide_data.loc[:, 'test_label'].dropna()
+
+        # self.wsi_length = 40000 * 2
+        self.wsi_length = 512 * 78 * 2
+        # self.seq_length = int(20000 / 2)
+        # self.seq_length = 10000
+        # self.seq_length = 5000
+        # self.seq_length = 2000
+        self.seq_length = 512 * 2
+        # self.seq_length = int(20000 / 4)
+        # self.wsi_length = 10
+
+    def read_data(self, slide_id):
+        #tmp = []
+        # for feat in self.feats[slide_id]:
+        #    tmp.append(feat['feature'])
+        #    label = feat['label']
+        # from conf.camlon16 import settings
+
+        # json_path = os.path.join(settings.json_dir, slide_id + '.json')
+        # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam/feature/pt_files/', slide_id + '.pt')
+        # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam_dino384_not_use_pretrain/feature/pt_files/', slide_id + '.pt')
+        # path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_not_use_pretrain/feature/pt_files/'
+        path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_use_pretrain/feature/pt_files'
+        pt_file = os.path.join(path, slide_id + '.pt')
+        # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam_dino384_use_pretrain/feature/pt_files', slide_id + '.pt')
+        print('reading from {}'.format(path))
+
+
+        # wsi =  WSIJSON(
+                    # json_path=json_path,
+                    # direction=0
+        # )
+        # env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
+        # with env.
+        # with env.begin(write=False) as txn:
+        #     output = []
+        #     for i in wsi:
+        #        patch_id = i['patch_id']
+        #                    # label = 0
+        #        # for d in data:
+        #        patch_id = i['patch_id']
+        #        img_stream = txn.get(patch_id.encode())
+        #        feat = unpack('384f', img_stream)
+        #        output.append(feat)
+        # print(pt_file)
+        feat = torch.load(pt_file)
+        # print(feats.shape)
+        # import sys; sys.exit()
+
+    #     feat = torch.tensor(output)
+        # print(feat.shape, 'cccccccccc')
+        # import sys; sys.exit()
+
+
+
+
+        # try:
+        #     feat = [x['feature'] for x in self.feats[slide_id]]
+        # except Exception as e:
+        #     print(self.state, 'cccccccccccccccccccccccccccccc')
+        #     raise e
+        #     # import sys; sys.exit()
+
+
+        # # feat = torch.tensor(np.array(tmp))
+        # feat = torch.tensor(np.array(feat))
+        # print(feat.shape)
+        return feat
+
+    def pad_seq(self, features):
+        fact = self.wsi_length / features.shape[0] + 1
+        # print(features[:, 4], fact)
+        features = features.repeat(int(fact), 1)
+        # print(features[:, 4], 'after repeat....')
+        features = features[:self.wsi_length]
+        # print(features[:, 4], 'after indexing....')
+        assert features.shape[0] == self.wsi_length
+
+        return features
+
+    # def __len__(self):
+    #     return len(self.data)
+
+    def __iter__(self):
+
+        idxes = list(range(len(self.data)))
+
+        if self.state == 'train':
+            random.shuffle(idxes)
+
+        for idx in idxes:
+            slide_id = self.data[idx]
+            label = int(self.label[idx])
+            # full_path = Path(self.feature_dir) / f'{slide_id}.pt'
+            # features = torch.load(full_path)
+            # features = self.feats[slide_id]
+            features = self.read_data(slide_id)
+
+            # features = features[:4]
+            # print(features[:, 4], self.wsi_length)
+
+            #----> shuffle
+            if self.shuffle == True:
+                index = [x for x in range(features.shape[0])]
+                random.shuffle(index)
+                features = features[index]
+
+            features = self.pad_seq(features)
+
+            # yield features, label, slide_id
+            # before_features = features.clone()
+#            # print('before', before_features[:, 4], features[:, 4], 'after', self.wsi_length)
+#
+#            # for
+#            assert self.wsi_length % self.seq_length == 0
+#
+            num_chunks = self.wsi_length / self.seq_length
+            count = 0
+            for chunk in features.chunk(int(num_chunks), dim=0):
+                count += 1
+                if count == num_chunks:
+                    is_last = 1
+                else:
+                    is_last = 0
+
+#
+                print(chunk.shape)
+#
+                yield chunk, label, slide_id, is_last
 
 
 
@@ -719,7 +1451,8 @@ class CAM16(WSIDataset):
             for d in data:
                 patch_id = d['patch_id']
                 img_stream = txn.get(patch_id.encode())
-                feat = unpack('384f', img_stream)
+                # feat = unpack('384f', img_stream)
+                feat = unpack('1024f', img_stream)
                 feats.append(feat)
                 label = d['label']
                 # print(label)
@@ -827,7 +1560,7 @@ class CAM16(WSIDataset):
 
                     if outputs:
                         data = default_collate(outputs)
-                        print(data['label'])
+                        # print(data['label'])
                         yield data['feat'], data['label'], data['filename'], data['is_last']
 
 # dataset = CAM16(

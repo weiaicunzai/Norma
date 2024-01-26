@@ -5,7 +5,7 @@ from torch.utils.data import random_split, DataLoader
 from torchvision.datasets import MNIST
 from torchvision import transforms
 
-class DataInterface1(pl.LightningDataModule):
+class DataInterface(pl.LightningDataModule):
 
     def __init__(self, train_batch_size=64, train_num_workers=8, test_batch_size=1, test_num_workers=1,dataset_name=None, **kwargs):
         """[summary]
@@ -111,7 +111,7 @@ class DataInterface1(pl.LightningDataModule):
         return self.data_module(**args1)
 
 
-class DataInterface(pl.LightningDataModule):
+class DataInterface1(pl.LightningDataModule):
 
     def __init__(self, train_batch_size=64, train_num_workers=8, test_batch_size=1, test_num_workers=1,dataset_name=None, **kwargs):
         """[summary]

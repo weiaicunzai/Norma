@@ -15,7 +15,7 @@ import openslide
 import lmdb
 import pandas
 
-from dataset import WSI, WSILMDB
+from datasets import WSI, WSILMDB
 from conf import camlon16
 import xml.etree.ElementTree as ET
 

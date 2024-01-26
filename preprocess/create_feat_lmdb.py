@@ -24,7 +24,9 @@ from torchvision import transforms
 from PIL import Image
 import  lmdb
 import json
-from preprocess.utils import get_vit256
+# from preprocess.utils import get_vit256
+from preprocess.resnet_custom import resnet50_baseline
+
 
 def worker(json_path):
     json_data = json.load(open(json_path, 'r'))
@@ -106,22 +108,40 @@ class PatchLMDB(Dataset):
         return {'img':img, 'patch_id':patch_id}
 
 
-def eval_transforms(patch_size):
-	"""
-	"""
-	mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
-	eval_t = transforms.Compose([
-            transforms.Resize((patch_size, patch_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean = mean, std = std)
-        ])
-	return eval_t
+# def eval_transforms(patch_size):
+# 	"""
+# 	"""
+# 	mean, std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
+# 	eval_t = transforms.Compose([
+#             transforms.Resize((patch_size, patch_size)),
+#             transforms.ToTensor(),
+#             transforms.Normalize(mean = mean, std = std)
+#         ])
+# 	return eval_t
 
+def eval_transforms(patch_size, pretrained=False):
+	if pretrained:
+		mean = (0.485, 0.456, 0.406)
+		std = (0.229, 0.224, 0.225)
+
+	else:
+		mean = (0.5,0.5,0.5)
+		std = (0.5,0.5,0.5)
+
+	trnsfrms_val = transforms.Compose(
+					[
+                     transforms.Resize((patch_size, patch_size)),
+					 transforms.ToTensor(),
+					 transforms.Normalize(mean = mean, std = std)
+					]
+				)
+
+	return trnsfrms_val
 
 def get_args_parser():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--dataset', required=True, default=None)
-    parser.add_argument('--ckpt', required=True, default=None)
+    # parser.add_argument('--ckpt', required=True, default=None)
 
     return parser.parse_args()
 
@@ -146,7 +166,7 @@ def writer_process(settings, q):
                 # and 3 times faster to decode (struct.unpack+torch.tensor)
                 # than torch.load from byte string
 
-                feat = struct.pack('384f', *feat.tolist())
+                feat = struct.pack('1024f', *feat.tolist())
                 txn.put(patch_id.encode(), feat)
                 count += 1
 
@@ -172,12 +192,13 @@ if __name__ == '__main__':
     if not os.path.exists(feat_dir):
         os.makedirs(feat_dir)
 
-    trans = eval_transforms(settings.patch_size)
+    trans = eval_transforms(settings.patch_size, pretrained=True)
 
     dataset = PatchLMDB(settings, trans=trans)
     dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True, prefetch_factor=8)
 
-    model = get_vit256(args.ckpt).cuda()
+    # model = get_vit256(args.ckpt).cuda()
+    model = resnet50_baseline(pretrained=True).cuda()
 
 
     q = Queue()

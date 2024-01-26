@@ -17,11 +17,13 @@ def get_wsi_path(settings):
 def random_read(settings):
     count = 0
     for wsi_path in get_wsi_path(settings):
+        # print(wsi_path)
         if not os.path.exists(wsi_path):
             print('file {} do not exists'.format(wsi_path))
             count += 1
             continue
 
+        # continue
         wsi = openslide.OpenSlide(wsi_path)
 
         for _ in range(30):
@@ -51,6 +53,8 @@ def get_args_parser():
 if __name__  == '__main__':
     args = get_args_parser()
     if args.dataset == 'brac':
+        from conf.brac import settings
+    if args.dataset == 'bracs':
         from conf.brac import settings
     else:
         raise ValueError('wrong value error')

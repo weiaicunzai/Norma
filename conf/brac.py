@@ -3,7 +3,7 @@ import glob
 import csv
 
 
-from dataset.utils import BRACLabel
+# from dataset.utils import BRACLabel
 
 # import sys; sys.exit()
 
@@ -112,10 +112,10 @@ class Settings:
         self.wsi_dir = os.path.join(self.root, 'img')
         self.mask_dir = os.path.join(self.root, 'mask')
         self.json_dir = os.path.join(self.root, 'json', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
-        self.file_list_csv = 'dataset/dataset_csv/brac/brac.csv'
+        self.file_list_csv = 'datasets/dataset_csv/brac/brac.csv'
         self.patch_dir = os.path.join(self.root, 'patch', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
         self.feat_dir = os.path.join(self.root, 'feat', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
-        self.split_dir = 'dataset/splits/brac'
+        self.split_dir = 'datasets/splits/brac'
         self.num_classes = 2
 
 

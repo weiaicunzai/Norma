@@ -39,8 +39,9 @@ def main(cfg):
                 'test_batch_size': cfg.Data.test_dataloader.batch_size,
                 'test_num_workers': cfg.Data.test_dataloader.num_workers,
                 'dataset_name': cfg.Data.dataset_name,
-                # 'dataset_name': 'cam16',
-                'dataset_cfg': cfg.Data,}
+                'dataset_name': 'cam16',
+                # 'dataset_cfg': cfg.Data,
+                }
     dm = DataInterface(**DataInterface_dict)
 
     #---->Define Model
@@ -65,6 +66,7 @@ def main(cfg):
         # accumulate_grad_batches=512 * 78 * 2 / (512 * 2) ,
         # accumulate_grad_batches=512 * 78 * 2 / (512 * 2) ,
         accumulate_grad_batches=78,
+        # accumulate_grad_batches=1,
         devices=[int(args.gpus)],
         precision=cfg.General.precision,
         # accumulate_grad_batches=cfg.General.grad_acc,

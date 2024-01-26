@@ -5,11 +5,12 @@ from torch.utils.data import random_split, DataLoader
 from torchvision.datasets import MNIST
 from torchvision import transforms
 
-class DataInterface(pl.LightningDataModule):
+class DataInterface1(pl.LightningDataModule):
 
     def __init__(self, train_batch_size=64, train_num_workers=8, test_batch_size=1, test_num_workers=1,dataset_name=None, **kwargs):
         """[summary]
 
+        ``camel_data dataset``
         Args:
             batch_size (int, optional): [description]. Defaults to 64.
             num_workers (int, optional): [description]. Defaults to 8.
@@ -62,12 +63,12 @@ class DataInterface(pl.LightningDataModule):
     def train_dataloader(self):
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=True)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=False)
-        return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=False)
+        return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=4, shuffle=False)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=True)
 
     def val_dataloader(self):
         # return DataLoader(self.val_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=False)
-        return DataLoader(self.val_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=False)
+        return DataLoader(self.val_dataset, batch_size=self.train_batch_size, num_workers=4, shuffle=False)
 
     def test_dataloader(self):
         # return DataLoader(self.test_dataset, batch_size=self.test_batch_size, num_workers=self.test_num_workers, shuffle=False)
@@ -111,7 +112,8 @@ class DataInterface(pl.LightningDataModule):
         return self.data_module(**args1)
 
 
-class DataInterface1(pl.LightningDataModule):
+class DataInterface(pl.LightningDataModule):
+    '''WSI dataset'''
 
     def __init__(self, train_batch_size=64, train_num_workers=8, test_batch_size=1, test_num_workers=1,dataset_name=None, **kwargs):
         """[summary]
@@ -171,7 +173,7 @@ class DataInterface1(pl.LightningDataModule):
             self.train_dataset = self.dataset(
                  data_set='train',
                  fold=0,
-                 batch_size=2,
+                 batch_size=1,
                  drop_last=False,
                  allow_reapt=False,
                  dist=None,
@@ -183,7 +185,7 @@ class DataInterface1(pl.LightningDataModule):
             self.val_dataset = self.dataset(
                  data_set='test',
                  fold=0,
-                 batch_size=2,
+                 batch_size=1,
                  drop_last=False,
                  allow_reapt=False,
                  dist=None,
@@ -197,7 +199,7 @@ class DataInterface1(pl.LightningDataModule):
             self.test_dataset = self.dataset(
                  data_set='test',
                  fold=0,
-                 batch_size=2,
+                 batch_size=1,
                  drop_last=False,
                  allow_reapt=False,
                  dist=None,
@@ -209,17 +211,17 @@ class DataInterface1(pl.LightningDataModule):
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=True)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=False)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=False)
-        return DataLoader(self.train_dataset, batch_size=None, num_workers=4, shuffle=False)
+        return DataLoader(self.train_dataset, batch_size=None, num_workers=0, shuffle=False)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=True)
 
     def val_dataloader(self):
         # return DataLoader(self.val_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=False)
         # return DataLoader(self.val_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=False)
-        return DataLoader(self.val_dataset, batch_size=None, num_workers=4, shuffle=False)
+        return DataLoader(self.val_dataset, batch_size=None, num_workers=0, shuffle=False)
 
     def test_dataloader(self):
         # return DataLoader(self.test_dataset, batch_size=self.test_batch_size, num_workers=self.test_num_workers, shuffle=False)
-        return DataLoader(self.test_dataset, batch_size=None, num_workers=4, shuffle=False)
+        return DataLoader(self.test_dataset, batch_size=None, num_workers=0, shuffle=False)
 
     # def load_data_module(self):
     #     camel_name =  ''.join([i.capitalize() for i in (self.dataset_name).split('_')])

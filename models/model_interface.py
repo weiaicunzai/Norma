@@ -21,7 +21,8 @@ import pytorch_lightning as pl
 
 
 # mem
-class  ModelInterface1(pl.LightningModule):
+class  ModelInterface(pl.LightningModule):
+    '''with mems'''
 
     #---->init
     def __init__(self, model, loss, optimizer, **kargs):
@@ -520,7 +521,8 @@ class  ModelInterface1(pl.LightningModule):
 
 
 # no mem
-class  ModelInterface(pl.LightningModule):
+class  ModelInterface1(pl.LightningModule):
+    '''without mem'''
 
     #---->init
     def __init__(self, model, loss, optimizer, **kargs):

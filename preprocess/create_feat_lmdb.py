@@ -34,7 +34,6 @@ def worker(json_path):
 
     base_name = json_data['filename']
     keys = []
-    t1 = time.time()
     for coord in coords:
         (x, y), level, (patch_size_x, patch_size_y) = coord
 
@@ -62,7 +61,6 @@ class PatchLMDB(Dataset):
         print('loading keys .....')
         self.keys = self.get_keys(settings)
         num_keys = self.env.stat()['entries']
-        print(num_keys, len(self.keys))
         assert num_keys == len(self.keys)
         print('done, total {} number of keys'.format(len(self.keys)))
         self.trans = trans
@@ -100,7 +98,6 @@ class PatchLMDB(Dataset):
             # print(patch_id)
             img_stream = txn.get(patch_id.encode())
             img = Image.open(io.BytesIO(img_stream))
-
 
         if self.trans is not None:
             img = self.trans(img)
@@ -157,6 +154,7 @@ def writer_process(settings, q):
     db_size = 1 << 42
     env = lmdb.open(settings.feat_dir, map_size=db_size)
 
+
     with env.begin(write=True) as txn:
         while True:
             record = q.get()
@@ -193,13 +191,14 @@ if __name__ == '__main__':
         os.makedirs(feat_dir)
 
     trans = eval_transforms(settings.patch_size, pretrained=True)
+    print(trans)
 
     dataset = PatchLMDB(settings, trans=trans)
-    dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True, prefetch_factor=8)
+    dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True)
 
     # model = get_vit256(args.ckpt).cuda()
     model = resnet50_baseline(pretrained=True).cuda()
-
+    model = model.eval()
 
     q = Queue()
 

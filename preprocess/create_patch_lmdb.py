@@ -58,6 +58,7 @@ def get_file_path(settings):
     with open(csv_path, 'r') as csv_file:
         for row in csv.DictReader(csv_file):
             slide_id = row['slide_id']
+
             name = os.path.splitext(slide_id)[0]
             json_path = os.path.join(settings.json_dir, name + '.json')
             wsi_path = os.path.join(settings.wsi_dir, slide_id)
@@ -99,9 +100,6 @@ if __name__ == '__main__':
     # fn = partial(write_single_wsi, settings=settings, q=q)
     fn = partial(write_single_wsi, q=q)
 
-    db_size = 1 << 42
-    print(settings.patch_dir)
-    env = lmdb.open(settings.patch_dir, map_size=db_size)
     num_process = mp.cpu_count()
 
     print('calculating total number of patches....')
@@ -111,6 +109,11 @@ if __name__ == '__main__':
     pool = mp.Pool(processes=num_process)
     pool.map_async(fn, get_file_path(settings))
 
+
+    db_size = 1 << 42
+    print(settings.patch_dir)
+    env = lmdb.open(settings.patch_dir, map_size=db_size)
+    # env = lmdb.open('/data/smb/syh/WSI_cls/default_clam_code/CLAM/tmp_lmdb', map_size=db_size)
 
     t1 = time.time()
 

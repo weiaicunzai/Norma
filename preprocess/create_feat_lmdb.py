@@ -194,6 +194,7 @@ if __name__ == '__main__':
     print(trans)
 
     dataset = PatchLMDB(settings, trans=trans)
+    # dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True, prefetch_factor=8)
     dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True)
 
     # model = get_vit256(args.ckpt).cuda()

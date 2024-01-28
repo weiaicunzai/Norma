@@ -199,6 +199,10 @@ if __name__ == '__main__':
 
     # model = get_vit256(args.ckpt).cuda()
     model = resnet50_baseline(pretrained=True).cuda()
+
+    if torch.cuda.device_count() > 1:
+		model = nn.DataParallel(model)
+
     model = model.eval()
 
     q = Queue()

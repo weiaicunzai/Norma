@@ -149,7 +149,6 @@ feat_test_lmdb
 feat_train_lmdb
 filter_broken_files
 mask2json_log
-preprocess_data.sh
 test_dataset.sh
 transmil_cam16
 write_cam16_lmdb

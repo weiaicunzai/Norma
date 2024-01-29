@@ -194,14 +194,13 @@ if __name__ == '__main__':
     print(trans)
 
     dataset = PatchLMDB(settings, trans=trans)
-    # dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True, prefetch_factor=8)
-    dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True)
+    dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True, prefetch_factor=8)
 
     # model = get_vit256(args.ckpt).cuda()
     model = resnet50_baseline(pretrained=True).cuda()
 
     if torch.cuda.device_count() > 1:
-		model = nn.DataParallel(model)
+        model = torch.nn.DataParallel(model)
 
     model = model.eval()
 

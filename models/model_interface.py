@@ -313,8 +313,8 @@ class  ModelInterface(pl.LightningModule):
         res = self.wsi_level_acc(self.train_probs, self.train_labels, self.valid_metrics, last_half=False)
         print('train performance, all {} '.format(res))
 
-        res = self.wsi_level_acc(self.train_probs, self.train_labels, self.valid_metrics, last_half=True)
-        print('train performance, last half {} '.format(res))
+        # res = self.wsi_level_acc(self.train_probs, self.train_labels, self.valid_metrics, last_half=True)
+        # print('train performance, last half {} '.format(res))
 
         # clear probs
         self.train_probs = {}
@@ -424,8 +424,8 @@ class  ModelInterface(pl.LightningModule):
         res = self.wsi_level_acc(self.val_probs, self.val_labels, self.test_metrics)
         print('val performance, all {} '.format(res))
 
-        res = self.wsi_level_acc(self.val_probs, self.val_labels, self.test_metrics, last_half=True)
-        print('val performance, last half {} '.format(res))
+        # res = self.wsi_level_acc(self.val_probs, self.val_labels, self.test_metrics, last_half=True)
+        # print('val performance, last half {} '.format(res))
         # print('valid_old')
         # for k, v in self.valid_results_old.items():
             # print(k, v, self.valid_results_new[k])

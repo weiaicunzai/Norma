@@ -1,4 +1,4 @@
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=0,1
 # DATASET=brac
 # DATA_DIRECTORY=/data/smb/syh/WSI_cls/TCGA_BRCA/img/
 # RESULTS_DIRECTORY=/data/smb/syh/WSI_cls/TCGA_BRCA/mask/
@@ -35,7 +35,7 @@ cd $CURRENT_DIRECTORY
 # python -u preprocess/mask2json.py --dataset $DATASET
 #
 ## extract patch into lmdb
-python -u preprocess/create_patch_lmdb.py --dataset $DATASET
+# python -u preprocess/create_patch_lmdb.py --dataset $DATASET
 #
 ## extract patch into feat
 python -u preprocess/create_feat_lmdb.py --dataset $DATASET

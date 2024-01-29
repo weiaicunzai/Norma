@@ -794,7 +794,7 @@ class CamelData(data.IterableDataset):
 
 
 
-class CamelData111(data.IterableDataset):
+class CamelData(data.IterableDataset):
     """clam resnet1024 ours"""
     def __init__(self, dataset_cfg=None,
                  state=None):
@@ -881,7 +881,8 @@ class CamelData111(data.IterableDataset):
         # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam/feature/pt_files/', slide_id + '.pt')
         # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam_dino384_not_use_pretrain/feature/pt_files/', slide_id + '.pt')
         # path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_not_use_pretrain/feature/pt_files/'
-        path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_use_pretrain/feature/pt_files'
+        # path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_use_pretrain/feature/pt_files'
+        path = '/data/smb/syh/WSI_cls/cam16_using_clam/feature/pt_files/'
         pt_file = os.path.join(path, slide_id + '.pt')
         # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam_dino384_use_pretrain/feature/pt_files', slide_id + '.pt')
         print('reading from {}'.format(path))
@@ -985,7 +986,7 @@ class CamelData111(data.IterableDataset):
                     is_last = 0
 
 #
-                print(chunk.shape)
+                # print(chunk.shape)
 #
                 yield chunk, label, slide_id, is_last
 

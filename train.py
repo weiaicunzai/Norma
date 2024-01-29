@@ -39,8 +39,8 @@ def main(cfg):
                 'test_batch_size': cfg.Data.test_dataloader.batch_size,
                 'test_num_workers': cfg.Data.test_dataloader.num_workers,
                 'dataset_name': cfg.Data.dataset_name,
-                'dataset_name': 'cam16',
-                # 'dataset_cfg': cfg.Data,
+                # 'dataset_name': 'cam16',
+                'dataset_cfg': cfg.Data,
                 }
     dm = DataInterface(**DataInterface_dict)
 

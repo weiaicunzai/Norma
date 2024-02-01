@@ -114,7 +114,8 @@ class DataInterface(pl.LightningDataModule):
         return self.data_module(**args1)
 
 
-class DataInterface1(pl.LightningDataModule):
+# class DataInterface_wsi(pl.LightningDataModule):
+class DataInterface_wsi(pl.LightningDataModule):
     '''WSI dataset'''
 
     def __init__(self, train_batch_size=64, train_num_workers=8, test_batch_size=1, test_num_workers=1,dataset_name=None, **kwargs):
@@ -166,6 +167,17 @@ class DataInterface1(pl.LightningDataModule):
 
         - apply transforms (defined explicitly in your datamodule or assigned in init)
         """
+        from datasets.utils import get_orig_wsis
+        if self.dataset_name == 'cam16':
+            from conf.camlon16 import settings
+
+        # read all the data
+        print('read all the data...')
+        data = get_orig_wsis(settings)
+        print('done')
+
+
+
         # Assign train/val datasets for use in dataloaders
         if stage == 'fit' or stage is None:
             #self.train_dataset = self.instancialize(state='train')
@@ -173,9 +185,10 @@ class DataInterface1(pl.LightningDataModule):
 
             # self.train_dataset = self.dataset()
             self.train_dataset = self.dataset(
+                 data=data,
                  data_set='train',
                  fold=0,
-                 batch_size=1,
+                 batch_size=4,
                  drop_last=False,
                  allow_reapt=False,
                  dist=None,
@@ -185,9 +198,10 @@ class DataInterface1(pl.LightningDataModule):
             # self.val_dataset = self.instancialize(state='val')
 
             self.val_dataset = self.dataset(
+                 data=data,
                  data_set='test',
                  fold=0,
-                 batch_size=1,
+                 batch_size=4,
                  drop_last=False,
                  allow_reapt=False,
                  dist=None,
@@ -199,9 +213,10 @@ class DataInterface1(pl.LightningDataModule):
             # self.mnist_test = MNIST(self.data_dir, train=False, transform=self.transform)
             # self.test_dataset = self.instancialize(state='test')
             self.test_dataset = self.dataset(
+                 data=data,
                  data_set='test',
                  fold=0,
-                 batch_size=1,
+                 batch_size=4,
                  drop_last=False,
                  allow_reapt=False,
                  dist=None,

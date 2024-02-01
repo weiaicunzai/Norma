@@ -17,6 +17,8 @@ import torch
 
 from torchvision import transforms
 
+import multiprocessing as mp
+
 
 # from preprocess import utils
 # from .wsi import WSI
@@ -29,39 +31,39 @@ from torchvision import transforms
 # from dataset.dataloader import WSIDataLoader
 # from dataset.aa import DistWSIDataLoader
 # from .dist_dataloader import DistWSIDataLoader
-class BRACLabel:
-    def __init__(self, csv_file):
-        self.csv_file = csv_file
-        # for line in open()
+# class BRACLabel:
+#     def __init__(self, csv_file):
+#         self.csv_file = csv_file
+#         # for line in open()
 
-        self.name2label = {}
-        label_dict = {'IDC':0, 'ILC':1}
-
-
+#         self.name2label = {}
+#         label_dict = {'IDC':0, 'ILC':1}
 
 
-        with open(csv_file, newline='') as csvfile:
-            spamreader = csv.DictReader(csvfile)
-            # print(list(spamreader))
-            print(csv_file)
-            for row in spamreader:
-                # row = row[0].split(',')
-                # print(row)
-                # if row[1] == 'Normal':
-                    # label = 0
-                # elif row[1] == 'Tumor':
-                    # label = 1
-                # else:
-                # print(row)
-                code = row['oncotree_code']
-                file_name = row['slide_id']
-                # print(file_name, code)
-                self.name2label[file_name] = label_dict[code]
 
-    def __call__(self, filename):
-        basename = os.path.basename(filename)
 
-        return self.name2label[basename]
+#         with open(csv_file, newline='') as csvfile:
+#             spamreader = csv.DictReader(csvfile)
+#             # print(list(spamreader))
+#             print(csv_file)
+#             for row in spamreader:
+#                 # row = row[0].split(',')
+#                 # print(row)
+#                 # if row[1] == 'Normal':
+#                     # label = 0
+#                 # elif row[1] == 'Tumor':
+#                     # label = 1
+#                 # else:
+#                 # print(row)
+#                 code = row['oncotree_code']
+#                 file_name = row['slide_id']
+#                 # print(file_name, code)
+#                 self.name2label[file_name] = label_dict[code]
+
+#     def __call__(self, filename):
+        # basename = os.path.basename(filename)
+
+#         return self.name2label[basename]
         # print(basename)
         # if 'tumor' in basename:
         #     return 1
@@ -803,3 +805,35 @@ def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, all=T
 
     # print(dataloader)
     return dataloader
+
+
+
+
+
+def get_orig_wsis(settings):
+    outputs = {}
+    # csv_file = settings.file_list_csv
+    # with open
+    csv_file = settings.file_list_csv
+    slides = []
+    with open(csv_file, 'r') as f:
+        for row in csv.DictReader(f):
+            slide_id = row['slide_id']
+            # slides.append(slide_id)
+            # print(slide_id)
+            basename = os.path.splitext(slide_id)[0]
+            feat_path = os.path.join(settings.feat_dir, basename + '.pt')
+            slides.append(feat_path)
+
+    # pool
+    # cpu_count = mp.cpu_count()
+    pool = mp.Pool(processes=4)
+    feats = pool.map(torch.load, slides)
+    for feat in feats:
+        for key, value in feat.items():
+            outputs[key] = torch.tensor(value)
+
+
+    # feat = torch.load(feat_path)
+
+    return outputs

@@ -741,6 +741,7 @@ class CamelData(data.IterableDataset):
     # def __len__(self):
     #     return len(self.data)
 
+
     def __iter__(self):
 
         idxes = list(range(len(self.data)))
@@ -797,13 +798,15 @@ class CamelData(data.IterableDataset):
 class CamelData(data.IterableDataset):
     """clam resnet1024 ours"""
     def __init__(self, dataset_cfg=None,
-                 state=None):
+                 state=None, settings=None):
         # Set all input args as attributes
         self.__dict__.update(locals())
         self.dataset_cfg = dataset_cfg
 
+        # if settings is not None:
+
         #---->data and label
-        self.nfolds = self.dataset_cfg.nfold
+        # self.nfolds = self.dataset_cfg.nfold
         self.fold = self.dataset_cfg.fold
         self.feature_dir = self.dataset_cfg.data_dir
         self.csv_dir = self.dataset_cfg.label_dir + f'fold{self.fold}.csv'
@@ -882,7 +885,7 @@ class CamelData(data.IterableDataset):
         # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam_dino384_not_use_pretrain/feature/pt_files/', slide_id + '.pt')
         # path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_not_use_pretrain/feature/pt_files/'
         # path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_use_pretrain/feature/pt_files'
-        path = '/data/smb/syh/WSI_cls/cam16_using_clam/feature/pt_files/'
+        path = '/data/smb/syh/WSI_cls/cam16/feat/patch_size_256_at_mag_20/'
         pt_file = os.path.join(path, slide_id + '.pt')
         # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam_dino384_use_pretrain/feature/pt_files', slide_id + '.pt')
         print('reading from {}'.format(path))
@@ -905,7 +908,12 @@ class CamelData(data.IterableDataset):
         #        feat = unpack('384f', img_stream)
         #        output.append(feat)
         # print(pt_file)
-        feat = torch.load(pt_file)
+        feats = torch.load(pt_file)
+        output = []
+        for feat in feats.values():
+            output.append(feat)
+
+
         # print(feats.shape)
         # import sys; sys.exit()
 
@@ -927,6 +935,9 @@ class CamelData(data.IterableDataset):
         # # feat = torch.tensor(np.array(tmp))
         # feat = torch.tensor(np.array(feat))
         # print(feat.shape)
+        feat = torch.tensor(output)
+        # feat = torch.stack(output, dim=0)
+        # print(output.shape)
         return feat
 
     def pad_seq(self, features):
@@ -942,6 +953,90 @@ class CamelData(data.IterableDataset):
 
     # def __len__(self):
     #     return len(self.data)
+
+    def __iter__(self):
+
+        worker_info = torch.utils.data.get_worker_info()
+
+        # create a new list to avoid change the self.orig_wsis
+        # during each epoch
+        wsis = []
+        for wsi in self.orig_wsis:
+            wsis.append(wsi)
+
+        wsis = self.shuffle(wsis)
+        # wsis = self.split_wsis(wsis) # used for ddp training
+        # wsis = self.orgnize_wsis(wsis)
+        # global_seq_len = self.cal_seq_len(wsis)
+
+        if self.data_set != 'train':
+            wsis = self.set_direction(wsis, direction=0)
+            if self.drop_last:
+                raise ValueError('during inference, the drop_last should not be set to true')
+        else:
+            wsis = self.set_random_direction(wsis)
+
+        count = 0
+        for idx in range(0, len(wsis), self.batch_size):#0
+
+            # add seeds here to avoid different seed value for
+            # different workers if we set seed += 1024 at the
+            # end of each data = next(x) loop (count might not
+            # be divided by each )
+            self.seed += 1024
+
+            batch_wsi = wsis[idx : idx + self.batch_size]
+
+            # assert len(batch_wsi) == self.batch_size
+            if len(batch_wsi) < self.batch_size:
+                if self.drop_last:
+                    continue
+
+            batch_wsi = [self.cycle(x) for x in batch_wsi]
+
+            # max_len_idx = idx // self.batch_size
+            # mex_len = self.wsi_len
+
+            # if not global_seq_len[max_len_idx]:
+                # warnings.warn('max batch len equals 0')
+                # continue
+
+            # max_len = global_seq_len[max_len_idx]
+
+            # if wsi len is not divisible by num_workers,
+            # the last few elements will
+            # change the order of reading next round
+            # set a global counter to eliminate this issue
+            for patch_idx in range(0, self.wsi_len, self.seq_len):#104
+
+                    outputs = []
+                    for wsi in batch_wsi:
+
+                        # data = next(wsi)
+                        data = self.read_seq(wsi)
+
+                        if worker_info is not None:
+                            if count % worker_info.num_workers != worker_info.id:
+                                continue
+
+                        data = self.read_img(data)
+
+                        # if patch_idx < max_len - 1:
+                        # if patch_idx < self.wsi_len - 1:
+                        if patch_idx < self.wsi_len - self.seq_len:
+                            data['is_last'] = 0
+                        else:
+                            data['is_last'] = 1
+
+                        outputs.append(data)
+
+                    count += 1
+
+                    if outputs:
+                        data = default_collate(outputs)
+                        # print(data['label'])
+                        yield data['feat'], data['label'], data['filename'], data['is_last']
+
 
     def __iter__(self):
 
@@ -1227,10 +1322,13 @@ class WSIDataset(data.IterableDataset):
 class CAM16(WSIDataset):
     # def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
     # def __init__(self, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
-    def __init__(self, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
+    def __init__(self, data, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
         """the num_worker of each CAMLON16 dataset is one, """
         # assert data_set in ['train', 'val']
+        print(self)
 
+
+        self.data = data
 
         self.batch_size = batch_size
         self.drop_last = drop_last
@@ -1244,7 +1342,7 @@ class CAM16(WSIDataset):
         # self.orig_wsis = self.get_wsis(data_set=data_set)
         self.orig_wsis = self.get_wsis(data_set=self.data_set, fold=self.fold)
         print('total number of wsis: {}'.format(len(self.orig_wsis)))
-        self.env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
+        # self.env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
         self.seed = 52
 
         self.dist = dist
@@ -1402,16 +1500,18 @@ class CAM16(WSIDataset):
     def read_img(self, data):
 
         output = {}
-        with self.env.begin(write=False) as txn:
-            feats = []
-            label = 0
-            for d in data:
-                patch_id = d['patch_id']
-                img_stream = txn.get(patch_id.encode())
-                # feat = unpack('384f', img_stream)
-                feat = unpack('1024f', img_stream)
-                feats.append(feat)
-                label = d['label']
+        # with self.env.begin(write=False) as txn:
+        feats = []
+        label = 0
+        for d in data:
+            patch_id = d['patch_id']
+            # img_stream = txn.get(patch_id.encode())
+            feat = self.data[patch_id]
+
+            # feat = unpack('384f', img_stream)
+            # feat = unpack('1024f', img_stream)
+            feats.append(feat)
+            label = d['label']
                 # print(label)
 
                 # img = np.frombuffer(img_stream, np.uint8)
@@ -1420,7 +1520,9 @@ class CAM16(WSIDataset):
                 # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
 
-        output['feat'] = torch.tensor(feats)
+        # output['feat'] = torch.tensor(feats)
+        # output['feat'] = torch.tensor(feats)
+        output['feat'] = torch.stack(feats, dim=0)
         output['label'] = int(label)
         output['filename'] = data[0]['filename']
         return output
@@ -1431,6 +1533,22 @@ class CAM16(WSIDataset):
             outputs.append(next(wsi))
 
         return outputs
+
+    def shift_wsi(self, batch_wsi, num_patches):
+        random.seed(self.seed)
+        # shift 1 or self.seq_len - 1 times
+        # shift = random.randint(1,  - 1)
+        # print('totoal {} number of wsis , shift {} number of tokens seq_len {} '.format(len(batch_wsi), shift, self.seq_len))
+        tmp = []
+        for wsi, num_patch in zip(batch_wsi, num_patches):
+
+            shift = random.randint(0, num_patch - 1)
+            for i in range(shift):
+                next(wsi)
+
+            tmp.append(wsi)
+
+        return tmp
 
     def __iter__(self):
 
@@ -1470,7 +1588,11 @@ class CAM16(WSIDataset):
                 if self.drop_last:
                     continue
 
+            num_patches = [w.num_patches for w in batch_wsi]
             batch_wsi = [self.cycle(x) for x in batch_wsi]
+            batch_wsi = self.shift_wsi(batch_wsi, num_patches)
+
+
 
             # max_len_idx = idx // self.batch_size
             # mex_len = self.wsi_len

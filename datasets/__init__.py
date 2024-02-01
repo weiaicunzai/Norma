@@ -7,4 +7,4 @@ from .wsi_reader import CAMLON16MixIn
 # from .dist_dataloader import DistWSIDataLoader
 
 
-from .data_interface import DataInterface
+from .data_interface import DataInterface, DataInterface_wsi

@@ -45,6 +45,8 @@ class  ModelInterface(pl.LightningModule):
                                                                         #    average = None,
                                                                            average='macro',
                                                                            task='MULTICLASS'),
+                                                    # torchmetrics.AUROC(num_classes = self.n_classes, average = 'macro'),
+                                                    torchmetrics.AUROC(num_classes=self.n_classes, average = 'macro', task='MULTICLASS'),
 
                                                     # torchmetrics.Accuracy(num_classes = self.n_classes,
                                                     #                     #    average = 'micro',
@@ -68,6 +70,8 @@ class  ModelInterface(pl.LightningModule):
                                                                         #    average = None,
                                                                            task='MULTICLASS'),
 
+                                                    # torchmetrics.AUROC(num_classes = 2, average = 'macro'),
+                                                    torchmetrics.AUROC(num_classes=2, average = 'macro', task='MULTICLASS'),
                                                     # torchmetrics.Accuracy(num_classes = 2,
                                                     #                     #    average = 'micro',
                                                     #                        average = 'macro',

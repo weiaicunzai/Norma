@@ -52,6 +52,7 @@ def main(cfg):
                             'data': cfg.Data,
                             'log': cfg.log_path
                             }
+    print(ModelInterface_dict)
     model = ModelInterface(**ModelInterface_dict)
     # model = DataInterface_wsi(**ModelInterface_dict)
 

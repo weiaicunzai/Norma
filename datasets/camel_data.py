@@ -1590,7 +1590,9 @@ class CAM16(WSIDataset):
 
             num_patches = [w.num_patches for w in batch_wsi]
             batch_wsi = [self.cycle(x) for x in batch_wsi]
-            batch_wsi = self.shift_wsi(batch_wsi, num_patches)
+
+            if self.data_set == 'train':
+                batch_wsi = self.shift_wsi(batch_wsi, num_patches)
 
 
 

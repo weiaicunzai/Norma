@@ -28,11 +28,11 @@ Data:
 
     train_dataloader:
         batch_size: 1
-        num_workers: 8
+        num_workers: 0
 
     test_dataloader:
         batch_size: 1
-        num_workers: 8
+        num_workers: 0
 
 Model:
     name: TransMIL
@@ -41,8 +41,10 @@ Model:
 
 Optimizer:
     opt: lookahead_radam
+    # lr: 0.0002
     lr: 0.0002
-    # lr: 0.00005
+    # lr: 0.0008
+    # lr: 0.0016
     opt_eps: null
     opt_betas: null
     momentum: null

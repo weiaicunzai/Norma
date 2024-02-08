@@ -1,25 +1,41 @@
 import os
-import csv
-import shutil
+import argparse
+import sys
+import json
+import multiprocessing as mp
+import statistics
+sys.path.append(os.getcwd())
 
+def get_length(json_fp):
+    json_data = json.load(open(json_fp))
+    coord = json_data['coords'][0]
+    return len(coord)
 
+def get_filelist(settings):
+    json_dir = settings.json_dir
+    for json_file in os.listdir(json_dir):
+        yield os.path.join(json_dir, json_file)
 
-csv_path = '/data/hdd1/by/tmp_folder/datasets/dataset_csv/brac/brac.csv'
-duoyu_img_path = '/data/smb/syh/WSI_cls/brac/img_duoyu'
-img_path = '/data/smb/syh/WSI_cls/brac/img'
+def get_args_parser():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--dataset', required=True, default=None)
 
+    return parser.parse_args()
 
-slides = []
-with open(csv_path, 'r') as csv_file:
-    for row in csv.DictReader(csv_file):
-        slide_id = row['slide_id']
-        slides.append(slide_id)
+from conf.brac import settings
 
+if __name__ == '__main__':
 
+    args = get_args_parser()
+    if args.dataset == 'brac':
+        from conf.brac import settings
+    elif args.dataset == 'cam16':
+        from conf.camlon16 import settings
+    else:
+        raise ValueError('wrong dataset')
 
-for img in os.listdir(img_path):
-    if img not in slide_id:
-        src_dir = os.path.join(img_path, img)
-        dest_dir = os.path.join(duoyu_img_path, img)
-        # shutil.move()
-        print(src_dir, dest_dir)
+    pool = mp.Pool(processes=mp.cpu_count())
+    res = pool.map(get_length, get_filelist(settings))
+
+    print('max', max(res))
+    print('mean', statistics.mean(res))

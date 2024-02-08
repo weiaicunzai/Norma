@@ -639,7 +639,7 @@ class CamelData11(data.IterableDataset):
 
 
 
-class CamelData(data.IterableDataset):
+class CamelData111(data.IterableDataset):
     """clam dino 384 ours"""
     def __init__(self, dataset_cfg=None,
                  state=None):
@@ -874,11 +874,18 @@ class CamelData(data.IterableDataset):
         # self.wsi_length = 10
 
     def read_data(self, slide_id):
-        #tmp = []
-        # for feat in self.feats[slide_id]:
-        #    tmp.append(feat['feature'])
-        #    label = feat['label']
-        # from conf.camlon16 import settings
+
+        path = '/data/smb/syh/WSI_cls/cam16_using_clam/feature/pt_files/'
+        # path = '/data/smb/syh/WSI_cls/cam16_using_clam_dino384_not_use_pretrain/feature/pt_files/'
+
+        pt_file = os.path.join(path, slide_id + '.pt')
+        print('reading from {}'.format(path))
+
+        feat = torch.load(pt_file)
+
+        return feat
+
+    def read_data1(self, slide_id):
 
         # json_path = os.path.join(settings.json_dir, slide_id + '.json')
         # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam/feature/pt_files/', slide_id + '.pt')
@@ -890,24 +897,6 @@ class CamelData(data.IterableDataset):
         # pt_file = os.path.join('/data/smb/syh/WSI_cls/cam16_using_clam_dino384_use_pretrain/feature/pt_files', slide_id + '.pt')
         print('reading from {}'.format(path))
 
-
-        # wsi =  WSIJSON(
-                    # json_path=json_path,
-                    # direction=0
-        # )
-        # env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
-        # with env.
-        # with env.begin(write=False) as txn:
-        #     output = []
-        #     for i in wsi:
-        #        patch_id = i['patch_id']
-        #                    # label = 0
-        #        # for d in data:
-        #        patch_id = i['patch_id']
-        #        img_stream = txn.get(patch_id.encode())
-        #        feat = unpack('384f', img_stream)
-        #        output.append(feat)
-        # print(pt_file)
         feats = torch.load(pt_file)
         output = []
         for feat in feats.values():

@@ -93,8 +93,8 @@ class TransLayer(nn.Module):
         #)
         self.attn = Attention(
             dim=dim,
-            heads = dim // 8,
-            dim_head = 8,
+            heads = 8,
+            dim_head = dim // 8,
             dropout = 0.1
         )
 
@@ -137,14 +137,38 @@ class TransMIL(nn.Module):
         # self.cls_token = nn.Parameter(torch.randn(1, 1, 512))
         self.cls_token = nn.Parameter(torch.randn(1, 1, net_dim))
         self.n_classes = n_classes
-        # self.layer1 = TransLayer(dim=512)
+
         # self.layer1 = TransLayer(dim=net_dim)
-        self.layer1 = TransLayer(dim=net_dim)
-        # self.layer2 = TransLayer(dim=512)
-        self.layer2 = TransLayer(dim=net_dim)
-        # self.norm = nn.LayerNorm(512)
-        self.norm = nn.LayerNorm(net_dim)
-        # self._fc2 = nn.Linear(512, self.n_classes)
+        # self.layer2 = TransLayer(dim=net_dim)
+
+        self.layer1 = Transformer(
+            dim= net_dim,
+            depth=1,
+            heads= 8,
+            dim_head= net_dim // 8,
+            mlp_dim= net_dim // 8 * 4,
+            dropout = 0.1
+        )
+        self.layer2 = Transformer(
+            dim=net_dim,
+            depth=1,
+            heads= 8,
+            dim_head= net_dim // 8,
+            mlp_dim= net_dim // 8 * 4,
+            dropout = 0.1
+        )
+
+        self.layer3 = Transformer(
+            dim= net_dim,
+            depth=1,
+            heads= 8,
+            dim_head= net_dim // 8,
+            mlp_dim= net_dim // 8 * 4,
+            dropout = 0.1
+        )
+
+        # self.norm = nn.LayerNorm(net_dim)
+
         self._fc2 = nn.Linear(net_dim, self.n_classes)
 
 
@@ -198,19 +222,25 @@ class TransMIL(nn.Module):
         cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
         h = torch.cat((cls_tokens, h), dim=1)
 
-        #---->Translayer x1
-        h = self.layer1(h) #[B, N, 512]
 
         #---->PPEG
         h = self.pos_layer(h, _H, _W) #[B, N, 512]
 
+        #---->Translayer x1
+        h = self.layer1(h) #[B, N, 512]
+
         #---->Translayer x2
         h = self.layer2(h) #[B, N, 512]
+
+
+        h = self.layer3(h) #[B, N, 512]
+
 
         mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
 
         #---->cls_token
-        h = self.norm(h)[:,0]
+        # h = self.norm(h)[:,0]
+        h = h[:,0]
 
         # print(mems.shape)
 

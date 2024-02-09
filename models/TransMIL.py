@@ -678,6 +678,7 @@ class TransMIL1(nn.Module):
     def forward(self, **kwargs):
 
         h = kwargs['data'].float() #[B, n, 1024]
+        print('he.shape', h.shape)
 
         # is_last = kwargs['is_last'].float() #[B, n, 1024]
         mems = kwargs.get('mems', None)
@@ -707,6 +708,7 @@ class TransMIL1(nn.Module):
         #---->cls_token
         B = h.shape[0]
         cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
+        print(h.shape, cls_tokens.shape)
         h = torch.cat((cls_tokens, h), dim=1)
 
         #---->PPEG

@@ -112,7 +112,11 @@ class DataInterface(pl.LightningDataModule):
             if arg in inkeys:
                 args1[arg] = self.kwargs[arg]
         args1.update(other_args)
+        # print(self.data_module, args1)
+        # import sys; sys.exit()
+        #return self.data_module(**args1)
         return self.data_module(**args1)
+
 
 
 # class DataInterface_wsi(pl.LightningDataModule):

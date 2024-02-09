@@ -376,9 +376,6 @@ class  ModelInterface(pl.LightningModule):
             self.data[y]["count"] += 1
             self.data[y]["correct"] += (y_hat.item() == y)
 
-
-
-
         self.validation_step_outputs.append(
             {'logits' : logits, 'Y_prob' : Y_prob, 'Y_hat' : Y_hat, 'label' : label}
         )

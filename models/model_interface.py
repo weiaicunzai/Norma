@@ -25,9 +25,10 @@ class  ModelInterface(pl.LightningModule):
     '''with mems'''
 
     #---->init
-    def __init__(self, model, loss, optimizer, **kargs):
+    def __init__(self, model, loss, optimizer, settings, **kargs):
         super(ModelInterface, self).__init__()
         self.save_hyperparameters()
+        self.settings = settings
         self.load_model()
         self.loss = create_loss(loss)
         self.optimizer = optimizer
@@ -501,7 +502,7 @@ class  ModelInterface(pl.LightningModule):
                 f'models.{name}'), camel_name)
         except:
             raise ValueError('Invalid Module File Name or Invalid Class Name!')
-        self.model = self.instancialize(Model)
+        self.model = self.instancialize(Model, max_len=self.settings.max_len)
         pass
 
     def instancialize(self, Model, **other_args):
@@ -516,6 +517,9 @@ class  ModelInterface(pl.LightningModule):
             if arg in inkeys:
                 args1[arg] = getattr(self.hparams.model, arg)
         args1.update(other_args)
+        # print('ccccccc')
+        print(args1, other_args)
+        # import sys; sys.exit()
         return Model(**args1)
 
 
@@ -1003,7 +1007,7 @@ class  ModelInterface1(pl.LightningModule):
                 f'models.{name}'), camel_name)
         except:
             raise ValueError('Invalid Module File Name or Invalid Class Name!')
-        self.model = self.instancialize(Model)
+        self.model = self.instancialize(Model, max_len=self.settings.max_len)
         pass
 
     def instancialize(self, Model, **other_args):

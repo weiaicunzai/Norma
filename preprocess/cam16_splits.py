@@ -63,13 +63,3 @@ print(splits)
 
 # splits.to_csv('')
 splits.to_csv('dataset/splits/cam16/splits_{}.csv'.format(0))
-
-# print(train)
-# print(val)
-
-# print(train['slide_id'] == val['slide_id'])
-
-# bool_csv = pd.concat
-# print(df['slide_id'].index)
-
-# print(df['slide_id']test_idx)

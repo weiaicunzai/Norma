@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -122,7 +124,7 @@ class PPEG(nn.Module):
 
 
 class TransMIL(nn.Module):
-    def __init__(self, n_classes):
+    def __init__(self, n_classes, max_len):
         super(TransMIL, self).__init__()
         # net_dim = 512
         net_dim = 512
@@ -180,7 +182,9 @@ class TransMIL(nn.Module):
         # self.mem_length = 8
         # self.mem_length = 78
         # self.mem_length = int(512 * 78 * 2 / (512 * 2) / 2)
-        self.mem_length = 39
+        # self.max_len = max_len
+        # self.mem_length = 39
+        self.mem_length = math.ceil(max_len / 1024)
         print('net_dim', net_dim, 'mem_length', self.mem_length)
 
     def _update_mems(self, mems, h):
@@ -222,7 +226,6 @@ class TransMIL(nn.Module):
         cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
         h = torch.cat((cls_tokens, h), dim=1)
 
-
         #---->PPEG
         h = self.pos_layer(h, _H, _W) #[B, N, 512]
 
@@ -251,9 +254,11 @@ class TransMIL(nn.Module):
         results_dict = {'logits': logits, 'Y_prob': Y_prob, 'Y_hat': Y_hat, 'mems': mems}
         return results_dict
 
+
 if __name__ == "__main__":
     data = torch.randn((1, 6000, 1024)).cuda()
-    model = TransMIL(n_classes=2).cuda()
-    print(model.eval())
-    results_dict = model(data = data)
-    print(results_dict)
+    model = TransMIL(n_classes=2, max_len=40000).cuda()
+    print(model)
+    # print(model.eval())
+    # results_dict = model(data = data)
+    # print(results_dict)

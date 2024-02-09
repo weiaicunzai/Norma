@@ -117,6 +117,7 @@ class Settings:
         self.feat_dir = os.path.join(self.root, 'feat', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
         self.split_dir = 'datasets/splits/brac'
         self.num_classes = 2
+        self.max_len = 67063
 
 
 

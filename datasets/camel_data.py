@@ -1,7 +1,9 @@
 import random
+import time
 import torch
 import pandas as pd
 from pathlib import Path
+import functools
 import pickle
 import os
 import sys
@@ -9,6 +11,7 @@ sys.path.append(os.getcwd())
 
 import numpy as np
 import torch.utils.data as data
+import multiprocessing as mp
 # from torch.utils.data import dataloader
 # from torch.utils.data import IterableDataset, default_collate
 import pandas as pd
@@ -1076,248 +1079,253 @@ class CamelData(data.IterableDataset):
 
 
 
+# class WSIDataset(data.IterableDataset):
+#     # def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
+#     def __init__(self, data_set, fold, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
+#         """the num_worker of each CAMLON16 dataset is one, """
+#         # assert data_set in ['train', 'val']
+
+
+#         self.batch_size = batch_size
+#         self.drop_last = drop_last
+#         self.allow_reapt = allow_reapt
+#         self.data_set = data_set
+#         self.fold = fold
+#         self.trans = transforms
+
+#         # self.orig_wsis = self.get_wsis(data_set=data_set)
+#         self.orig_wsis = self.get_wsis(data_set=self.data_set, fold=self.fold)
+#         self.env = lmdb.open(lmdb_path, readonly=True, lock=False)
+#         self.seed = 52
+
+#         self.dist = dist
+
+#         self.seq_len = 1024
+#         self.wsi_len = 79872
+
+#     def split_wsis(self, wsis):
+#         if not self.dist.is_initialized():
+#             return wsis
+#         else:
+#             """get wsis for each gpu"""
+#             rank = self.dist.get_rank()
+#             num_replicas = self.dist.get_world_size()
+#             num_samples = math.ceil(len(wsis) / num_replicas)
+#             subsample = wsis[rank * num_samples: (rank + 1) * num_samples]
+
+#             # make sure each gpu acclocated the same number of wsis
+#             if len(subsample) < num_samples:
+#                 diff = num_samples - len(subsample)
+#                 subsample.extend(wsis[:diff])
+
+#             return subsample
+
+
+#     def get_wsis(self, data_set):
+#         NotImplementedError
+
+#     def set_direction(self, wsis, direction):
+#         for wsi in wsis:
+#             wsi.direction = direction
+
+#         return wsis
+
+#     def set_random_direction(self, wsis):
+#         random.seed(self.seed)
+#         for wsi in wsis:
+#             direction = random.randint(0, 7)
+#             wsi.direction = direction
+#         return wsis
+
+#     def orgnize_wsis(self, orig_wsis):
+#         wsis = []
+#         # when batch size is larger than the total num of wsis
+#         if self.batch_size > len(orig_wsis):
+#             if self.allow_reapt:
+#                 wsis = orig_wsis
+#                 while len(wsis) != self.batch_size:
+#                     wsis.extend(random.sample(orig_wsis, k=1))
+#             else:
+#                 raise ValueError('allow_reapt should be True when batch_size is larger than the whole wsis')
+
+#         else:
+#             remainder = len(orig_wsis) % self.batch_size
+#             # if the total number of wsis is not divisible by batch_size
+#             if remainder > 0:
+#                 # if we do not drop the last, we randomly select "self.batch_size - remainder" number of
+#                 # samples add to the orig_
+#                 random.seed(self.seed)
+#                 if not self.drop_last:
+#                     wsis = orig_wsis
+#                     # for wsi in random.sample(self.orig_wsis, k=self.batch_size - remainder):
+#                     for wsi in random.sample(orig_wsis, k=self.batch_size - remainder):
+#                         wsis.append(wsi)
+
+#                 else:
+#                     # if drop last, we randomly sample "total number of self.orig_wsis - remainer" number
+#                     # of wsis
+#                     wsis = random.sample(orig_wsis, k=len(orig_wsis) - remainder)
+#                     assert len(wsis) == len(orig_wsis) - remainder
+#             else:
+#                 wsis = orig_wsis
+#         return wsis
+
+
+#     def shuffle(self, wsis):
+#         """manually shuffle all the wsis, because when num_workers > 0,
+#         the copy of dataset wont update in the main process """
+#         random.seed(self.seed)
+#         random.shuffle(wsis)
+
+#         return wsis
+
+#     def cal_seq_len(self, wsis):
+#         outputs = []
+
+#         for idx in range(0, len(wsis), self.batch_size):
+
+#             batch_wsi = wsis[idx : idx + self.batch_size]
+#             max_len = max([wsi.num_patches for wsi in batch_wsi])
+
+#             outputs.append(max_len)
+
+#         return outputs
+
+#     def cycle(self, iterable):
+#         while True:
+#             for data in iterable:
+#                 yield data
+
+#     def read_img(self, data):
+
+#         with self.env.begin(write=False) as txn:
+#             output = []
+#             label = 0
+#             for d in data:
+#                 patch_id = data['patch_id']
+#                 img_stream = txn.get(patch_id.encode())
+#                 feat = unpack('384f', img_stream)
+#                 output.append(feat)
+#                 label = data['label']
+
+#                 # img = np.frombuffer(img_stream, np.uint8)
+#                 # In the case of color images, the decoded images will have the channels stored in B G R order.
+#                 # img = cv2.imdecode(img, -1)  # most time is consum
+#                 # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+
+#         data['feat'] = torch.tensor(output)
+#         data['label'] = label
+#         return data
+
+#     def read_seq(self, wsi):
+#         outputs = []
+#         for i in range(self.seq_len):
+#             outputs.append(next(wsi))
+
+#         return outputs
+
+#     def __iter__(self):
+
+#         worker_info = torch.utils.data.get_worker_info()
+
+#         # create a new list to avoid change the self.orig_wsis
+#         # during each epoch
+#         wsis = []
+#         for wsi in self.orig_wsis:
+#             wsis.append(wsi)
+
+#         wsis = self.shuffle(wsis)
+#         # wsis = self.split_wsis(wsis) # used for ddp training
+#         # wsis = self.orgnize_wsis(wsis)
+#         # global_seq_len = self.cal_seq_len(wsis)
+
+#         if self.data_set != 'train':
+#             wsis = self.set_direction(wsis, direction=0)
+#             if self.drop_last:
+#                 raise ValueError('during inference, the drop_last should not be set to true')
+#         else:
+#             wsis = self.set_random_direction(wsis)
+
+#         count = 0
+#         for idx in range(0, len(wsis), self.batch_size):#0
+
+#             # add seeds here to avoid different seed value for
+#             # different workers if we set seed += 1024 at the
+#             # end of each data = next(x) loop (count might not
+#             # be divided by each )
+#             self.seed += 1024
+
+#             batch_wsi = wsis[idx : idx + self.batch_size]
+
+#             # assert len(batch_wsi) == self.batch_size
+
+#             batch_wsi = [self.cycle(x) for x in batch_wsi]
+
+#             # max_len_idx = idx // self.batch_size
+#             # mex_len = self.wsi_len
+
+#             # if not global_seq_len[max_len_idx]:
+#                 # warnings.warn('max batch len equals 0')
+#                 # continue
+
+#             # max_len = global_seq_len[max_len_idx]
+
+#             # if wsi len is not divisible by num_workers,
+#             # the last few elements will
+#             # change the order of reading next round
+#             # set a global counter to eliminate this issue
+#             for patch_idx in range(0, self.wsi_len, self.seq_len):#104
+
+#                     outputs = []
+#                     for wsi in batch_wsi:
+
+#                         # data = next(wsi)
+#                         data = self.read_seq(wsi)
+
+#                         if worker_info is not None:
+#                             if count % worker_info.num_workers != worker_info.id:
+#                                 continue
+
+#                             #data['worker_id'] = worker_info.id
+#                             #data['count'] = self.count
+#                             #data['patch_idx'] = patch_idx
+#                             #data['seed'] = tmp_seed
+#                             # data['dir'] = tmp_dircts
+#                         data = self.read_img(data)
+
+#                         # if patch_idx < max_len - 1:
+#                         # if patch_idx < self.wsi_len - 1:
+#                         if patch_idx < self.wsi_len - self.seq_len:
+#                             data['is_last'] = 0
+#                         else:
+#                             data['is_last'] = 1
+
+#                         outputs.append(data)
+
+#                     count += 1
+
+#                     if outputs:
+#                         yield default_collate(outputs)
+
+
+
+
+# class CAM16(WSIDataset):
+
+def get_wsi(slide, json_dir):
+    json_path = os.path.join(json_dir, slide + '.json')
+    print('load json {}'.format(json_path))
+    return WSIJSON(json_path=json_path, direction=0)
+
 class WSIDataset(data.IterableDataset):
     # def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
-    def __init__(self, data_set, fold, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
-        """the num_worker of each CAMLON16 dataset is one, """
-        # assert data_set in ['train', 'val']
-
-
-        self.batch_size = batch_size
-        self.drop_last = drop_last
-        self.allow_reapt = allow_reapt
-        self.data_set = data_set
-        self.fold = fold
-        self.trans = transforms
-
-        # self.orig_wsis = self.get_wsis(data_set=data_set)
-        self.orig_wsis = self.get_wsis(data_set=self.data_set, fold=self.fold)
-        self.env = lmdb.open(lmdb_path, readonly=True, lock=False)
-        self.seed = 52
-
-        self.dist = dist
-
-        self.seq_len = 1024
-        self.wsi_len = 79872
-
-    def split_wsis(self, wsis):
-        if not self.dist.is_initialized():
-            return wsis
-        else:
-            """get wsis for each gpu"""
-            rank = self.dist.get_rank()
-            num_replicas = self.dist.get_world_size()
-            num_samples = math.ceil(len(wsis) / num_replicas)
-            subsample = wsis[rank * num_samples: (rank + 1) * num_samples]
-
-            # make sure each gpu acclocated the same number of wsis
-            if len(subsample) < num_samples:
-                diff = num_samples - len(subsample)
-                subsample.extend(wsis[:diff])
-
-            return subsample
-
-
-    def get_wsis(self, data_set):
-        NotImplementedError
-
-    def set_direction(self, wsis, direction):
-        for wsi in wsis:
-            wsi.direction = direction
-
-        return wsis
-
-    def set_random_direction(self, wsis):
-        random.seed(self.seed)
-        for wsi in wsis:
-            direction = random.randint(0, 7)
-            wsi.direction = direction
-        return wsis
-
-    def orgnize_wsis(self, orig_wsis):
-        wsis = []
-        # when batch size is larger than the total num of wsis
-        if self.batch_size > len(orig_wsis):
-            if self.allow_reapt:
-                wsis = orig_wsis
-                while len(wsis) != self.batch_size:
-                    wsis.extend(random.sample(orig_wsis, k=1))
-            else:
-                raise ValueError('allow_reapt should be True when batch_size is larger than the whole wsis')
-
-        else:
-            remainder = len(orig_wsis) % self.batch_size
-            # if the total number of wsis is not divisible by batch_size
-            if remainder > 0:
-                # if we do not drop the last, we randomly select "self.batch_size - remainder" number of
-                # samples add to the orig_
-                random.seed(self.seed)
-                if not self.drop_last:
-                    wsis = orig_wsis
-                    # for wsi in random.sample(self.orig_wsis, k=self.batch_size - remainder):
-                    for wsi in random.sample(orig_wsis, k=self.batch_size - remainder):
-                        wsis.append(wsi)
-
-                else:
-                    # if drop last, we randomly sample "total number of self.orig_wsis - remainer" number
-                    # of wsis
-                    wsis = random.sample(orig_wsis, k=len(orig_wsis) - remainder)
-                    assert len(wsis) == len(orig_wsis) - remainder
-            else:
-                wsis = orig_wsis
-        return wsis
-
-
-    def shuffle(self, wsis):
-        """manually shuffle all the wsis, because when num_workers > 0,
-        the copy of dataset wont update in the main process """
-        random.seed(self.seed)
-        random.shuffle(wsis)
-
-        return wsis
-
-    def cal_seq_len(self, wsis):
-        outputs = []
-
-        for idx in range(0, len(wsis), self.batch_size):
-
-            batch_wsi = wsis[idx : idx + self.batch_size]
-            max_len = max([wsi.num_patches for wsi in batch_wsi])
-
-            outputs.append(max_len)
-
-        return outputs
-
-    def cycle(self, iterable):
-        while True:
-            for data in iterable:
-                yield data
-
-    def read_img(self, data):
-
-        with self.env.begin(write=False) as txn:
-            output = []
-            label = 0
-            for d in data:
-                patch_id = data['patch_id']
-                img_stream = txn.get(patch_id.encode())
-                feat = unpack('384f', img_stream)
-                output.append(feat)
-                label = data['label']
-
-                # img = np.frombuffer(img_stream, np.uint8)
-                # In the case of color images, the decoded images will have the channels stored in B G R order.
-                # img = cv2.imdecode(img, -1)  # most time is consum
-                # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-
-        data['feat'] = torch.tensor(output)
-        data['label'] = label
-        return data
-
-    def read_seq(self, wsi):
-        outputs = []
-        for i in range(self.seq_len):
-            outputs.append(next(wsi))
-
-        return outputs
-
-    def __iter__(self):
-
-        worker_info = torch.utils.data.get_worker_info()
-
-        # create a new list to avoid change the self.orig_wsis
-        # during each epoch
-        wsis = []
-        for wsi in self.orig_wsis:
-            wsis.append(wsi)
-
-        wsis = self.shuffle(wsis)
-        # wsis = self.split_wsis(wsis) # used for ddp training
-        # wsis = self.orgnize_wsis(wsis)
-        # global_seq_len = self.cal_seq_len(wsis)
-
-        if self.data_set != 'train':
-            wsis = self.set_direction(wsis, direction=0)
-            if self.drop_last:
-                raise ValueError('during inference, the drop_last should not be set to true')
-        else:
-            wsis = self.set_random_direction(wsis)
-
-        count = 0
-        for idx in range(0, len(wsis), self.batch_size):#0
-
-            # add seeds here to avoid different seed value for
-            # different workers if we set seed += 1024 at the
-            # end of each data = next(x) loop (count might not
-            # be divided by each )
-            self.seed += 1024
-
-            batch_wsi = wsis[idx : idx + self.batch_size]
-
-            # assert len(batch_wsi) == self.batch_size
-
-            batch_wsi = [self.cycle(x) for x in batch_wsi]
-
-            # max_len_idx = idx // self.batch_size
-            # mex_len = self.wsi_len
-
-            # if not global_seq_len[max_len_idx]:
-                # warnings.warn('max batch len equals 0')
-                # continue
-
-            # max_len = global_seq_len[max_len_idx]
-
-            # if wsi len is not divisible by num_workers,
-            # the last few elements will
-            # change the order of reading next round
-            # set a global counter to eliminate this issue
-            for patch_idx in range(0, self.wsi_len, self.seq_len):#104
-
-                    outputs = []
-                    for wsi in batch_wsi:
-
-                        # data = next(wsi)
-                        data = self.read_seq(wsi)
-
-                        if worker_info is not None:
-                            if count % worker_info.num_workers != worker_info.id:
-                                continue
-
-                            #data['worker_id'] = worker_info.id
-                            #data['count'] = self.count
-                            #data['patch_idx'] = patch_idx
-                            #data['seed'] = tmp_seed
-                            # data['dir'] = tmp_dircts
-                        data = self.read_img(data)
-
-                        # if patch_idx < max_len - 1:
-                        # if patch_idx < self.wsi_len - 1:
-                        if patch_idx < self.wsi_len - self.seq_len:
-                            data['is_last'] = 0
-                        else:
-                            data['is_last'] = 1
-
-                        outputs.append(data)
-
-                    count += 1
-
-                    if outputs:
-                        yield default_collate(outputs)
-
-
-
-
-class CAM16(WSIDataset):
-    # def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
     # def __init__(self, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
-    def __init__(self, data, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
+    def __init__(self, settings, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
         """the num_worker of each CAMLON16 dataset is one, """
         # assert data_set in ['train', 'val']
         print(self)
 
-
-        self.data = data
 
         self.batch_size = batch_size
         self.drop_last = drop_last
@@ -1325,19 +1333,24 @@ class CAM16(WSIDataset):
         self.data_set = data_set
         self.fold = fold
         # self.trans = transforms
-        from conf.camlon16 import settings
+        # from conf.camlon16 import settings
         self.settings = settings
 
         # self.orig_wsis = self.get_wsis(data_set=data_set)
         self.orig_wsis = self.get_wsis(data_set=self.data_set, fold=self.fold)
         print('total number of wsis: {}'.format(len(self.orig_wsis)))
-        # self.env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
+        self.env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
+        print('cccccc')
         self.seed = 52
 
         self.dist = dist
 
+        self.max_len = settings.max_len
         self.seq_len = 1024
-        self.wsi_len = 79872
+        num_chunks = math.ceil(self.max_len / self.seq_len)
+        # self.wsi_len = 79872
+        self.wsi_len = num_chunks * 2 * self.seq_len
+        print('wsi length: {}'.format(self.wsi_len))
 
 
     def split_wsis(self, wsis):
@@ -1391,16 +1404,32 @@ class CAM16(WSIDataset):
 
         # print(slide_ids)
         wsis = []
-        for slide in slide_ids:
-            # print(i, '333')
-            json_path = os.path.join(self.settings.json_dir, slide + '.json')
-            print(json_path)
-            wsis.append(
-                WSIJSON(
-                    json_path=json_path,
-                    direction=0,
-                    )
-            )
+
+
+
+        # pool = mp.Pool(processes=mp.cpu_count())
+        print('start load json')
+        t1 = time.time()
+        # pool = mp.Pool(processes=mp.cpu_count())
+        # pool = mp.Pool(processes=4)
+        # fn = functools.partial(get_wsi, json_dir=self.settings.json_dir)
+        # wsis = pool.map(fn, slide_ids.tolist())
+        wsis = []
+        for slide_id in slide_ids:
+            wsi = get_wsi(slide_id, self.settings.json_dir)
+            wsis.append(wsi)
+
+        print('done load json {}'.format(time.time() - t1))
+        # for slide in slide_ids:
+        #     # print(i, '333')
+        #     json_path = os.path.join(self.settings.json_dir, slide + '.json')
+        #     print(json_path)
+        #     wsis.append(
+        #         WSIJSON(
+        #             json_path=json_path,
+        #             direction=0,
+        #             )
+        #     )
 
 
         # mask = file_list.isin(sli)
@@ -1516,12 +1545,46 @@ class CAM16(WSIDataset):
         output['filename'] = data[0]['filename']
         return output
 
-    def read_seq(self, wsi):
-        outputs = []
-        for i in range(self.seq_len):
-            outputs.append(next(wsi))
+    # def read_seq(self, wsi):
+    #     outputs = []
+    #     for i in range(self.seq_len):
+    #         outputs.append(next(wsi))
 
-        return outputs
+    #     return outputs
+    def read_seq(self, wsi):
+
+        feats = []
+        label = 0
+        filename = ''
+        with self.env.begin(write=False) as txn:
+            for idx, d in enumerate(wsi):
+                patch_id = d['patch_id']
+                img_stream = txn.get(patch_id.encode())
+                # feat = self.data[patch_id]
+
+                # feat = unpack('384f', img_stream)
+                feat = unpack('1024f', img_stream)
+                feats.append(feat)
+                label = d['label']
+                filename = d['filename']
+                # print(label)
+
+                # img = np.frombuffer(img_stream, np.uint8)
+                # In the case of color images, the decoded images will have the channels stored in B G R order.
+                # img = cv2.imdecode(img, -1)  # most time is consum
+                # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                if idx == self.seq_len - 1:
+                    break
+
+
+
+
+        output = {}
+        # output['feat'] = torch.stack(feats, dim=0)
+        output['feat'] = torch.tensor(feats)
+        output['label'] = int(label)
+        output['filename'] = filename
+        return output
 
     def shift_wsi(self, batch_wsi, num_patches):
         random.seed(self.seed)
@@ -1615,7 +1678,7 @@ class CAM16(WSIDataset):
                             #data['patch_idx'] = patch_idx
                             #data['seed'] = tmp_seed
                             # data['dir'] = tmp_dircts
-                        data = self.read_img(data)
+                        # data = self.read_img(data)
 
                         # if patch_idx < max_len - 1:
                         # if patch_idx < self.wsi_len - 1:
@@ -1653,3 +1716,334 @@ class CAM16(WSIDataset):
 #     # print('is_last', d['is_last'])
 #     # print(d['label'])
 #     # print(idx)
+
+
+
+#class CAM16(WSIDataset):
+#    # def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
+#    # def __init__(self, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
+#    def __init__(self, data, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
+#        """the num_worker of each CAMLON16 dataset is one, """
+#        # assert data_set in ['train', 'val']
+#        print(self)
+#
+#
+#        self.data = data
+#
+#        self.batch_size = batch_size
+#        self.drop_last = drop_last
+#        self.allow_reapt = allow_reapt
+#        self.data_set = data_set
+#        self.fold = fold
+#        # self.trans = transforms
+#        from conf.camlon16 import settings
+#        self.settings = settings
+#
+#        # self.orig_wsis = self.get_wsis(data_set=data_set)
+#        self.orig_wsis = self.get_wsis(data_set=self.data_set, fold=self.fold)
+#        print('total number of wsis: {}'.format(len(self.orig_wsis)))
+#        # self.env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
+#        self.seed = 52
+#
+#        self.dist = dist
+#
+#        self.max_len = 43950
+#        self.seq_len = 1024
+#        num_chunks = math.ceil(self.max_len / self.seq_len)
+#        # self.wsi_len = 79872
+#        self.wsi_len = num_chunks * 2 * 1024
+#
+#
+#    def split_wsis(self, wsis):
+#        if not self.dist.is_initialized():
+#            return wsis
+#        else:
+#            """get wsis for each gpu"""
+#            rank = self.dist.get_rank()
+#            num_replicas = self.dist.get_world_size()
+#            num_samples = math.ceil(len(wsis) / num_replicas)
+#            subsample = wsis[rank * num_samples: (rank + 1) * num_samples]
+#
+#            # make sure each gpu acclocated the same number of wsis
+#            if len(subsample) < num_samples:
+#                diff = num_samples - len(subsample)
+#                subsample.extend(wsis[:diff])
+#
+#            return subsample
+#
+#
+#    def get_wsis(self, data_set, fold):
+#        # wsis = self.data_set()
+#        # from conf.camlon16 import settings
+#        file_list = pd.read_csv(self.settings.file_list_csv)
+#        file_list['slide_id'] = file_list['slide_id'].apply(
+#            lambda x: os.path.splitext(x)[0]
+#        )
+#        # print(file_list['slide_id'])
+#        # splits = os.path.join(os.pat)
+#        # split_file = os.path.join('datasets', 'splits', 'cam16', 'splits_{}.csv'.format(fold))
+#        # pd.set_option('display.max_rows', None)
+#        split_file = os.path.join(self.settings.split_dir, 'splits_{}.csv'.format(fold))
+#        splits = pd.read_csv(split_file)
+#        # data_list = splits[data_set]
+#        # if data_set != 'test':
+#        train_split = splits['train'].dropna()
+#        val_split = splits['val'].dropna()
+#        test_split = splits['test'].dropna()
+#        # print(data_list)
+#        # print(val_split, train_split, test_split)
+#
+#
+#        if data_set != 'test':
+#            mask1 = file_list['slide_id'].isin(train_split)
+#            mask2 = file_list['slide_id'].isin(val_split)
+#            slide_ids = file_list['slide_id'][mask1 | mask2]
+#        else:
+#            mask1 = file_list['slide_id'].isin(test_split)
+#            slide_ids = file_list['slide_id'][mask1]
+#
+#
+#        # print(slide_ids)
+#        wsis = []
+#        for slide in slide_ids:
+#            # print(i, '333')
+#            json_path = os.path.join(self.settings.json_dir, slide + '.json')
+#            print(json_path)
+#            wsis.append(
+#                WSIJSON(
+#                    json_path=json_path,
+#                    direction=0,
+#                    )
+#            )
+#
+#
+#        # mask = file_list.isin(sli)
+#        # print(len(slide_ids))
+#
+#        # data = file_list[mask]
+#        # print(data)
+#        # return data
+#        return wsis
+#
+#
+#
+#
+#    def set_direction(self, wsis, direction):
+#        for wsi in wsis:
+#            wsi.direction = direction
+#
+#        return wsis
+#
+#    def set_random_direction(self, wsis):
+#        random.seed(self.seed)
+#        for wsi in wsis:
+#            direction = random.randint(0, 7)
+#            wsi.direction = direction
+#        return wsis
+#
+#    def orgnize_wsis(self, orig_wsis):
+#        wsis = []
+#        # when batch size is larger than the total num of wsis
+#        if self.batch_size > len(orig_wsis):
+#            if self.allow_reapt:
+#                wsis = orig_wsis
+#                while len(wsis) != self.batch_size:
+#                    wsis.extend(random.sample(orig_wsis, k=1))
+#            else:
+#                raise ValueError('allow_reapt should be True when batch_size is larger than the whole wsis')
+#
+#        else:
+#            remainder = len(orig_wsis) % self.batch_size
+#            # if the total number of wsis is not divisible by batch_size
+#            if remainder > 0:
+#                # if we do not drop the last, we randomly select "self.batch_size - remainder" number of
+#                # samples add to the orig_
+#                random.seed(self.seed)
+#                if not self.drop_last:
+#                    wsis = orig_wsis
+#                    # for wsi in random.sample(self.orig_wsis, k=self.batch_size - remainder):
+#                    for wsi in random.sample(orig_wsis, k=self.batch_size - remainder):
+#                        wsis.append(wsi)
+#
+#                else:
+#                    # if drop last, we randomly sample "total number of self.orig_wsis - remainer" number
+#                    # of wsis
+#                    wsis = random.sample(orig_wsis, k=len(orig_wsis) - remainder)
+#                    assert len(wsis) == len(orig_wsis) - remainder
+#            else:
+#                wsis = orig_wsis
+#        return wsis
+#
+#
+#    def shuffle(self, wsis):
+#        """manually shuffle all the wsis, because when num_workers > 0,
+#        the copy of dataset wont update in the main process """
+#        random.seed(self.seed)
+#        random.shuffle(wsis)
+#
+#        return wsis
+#
+#    def cal_seq_len(self, wsis):
+#        outputs = []
+#
+#        for idx in range(0, len(wsis), self.batch_size):
+#
+#            batch_wsi = wsis[idx : idx + self.batch_size]
+#            max_len = max([wsi.num_patches for wsi in batch_wsi])
+#
+#            outputs.append(max_len)
+#
+#        return outputs
+#
+#    def cycle(self, iterable):
+#        while True:
+#            for data in iterable:
+#                yield data
+#
+#    def read_img(self, data):
+#
+#        output = {}
+#        # with self.env.begin(write=False) as txn:
+#        feats = []
+#        label = 0
+#        for d in data:
+#            patch_id = d['patch_id']
+#            # img_stream = txn.get(patch_id.encode())
+#            feat = self.data[patch_id]
+#
+#            # feat = unpack('384f', img_stream)
+#            # feat = unpack('1024f', img_stream)
+#            feats.append(feat)
+#            label = d['label']
+#                # print(label)
+#
+#                # img = np.frombuffer(img_stream, np.uint8)
+#                # In the case of color images, the decoded images will have the channels stored in B G R order.
+#                # img = cv2.imdecode(img, -1)  # most time is consum
+#                # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+#
+#
+#        # output['feat'] = torch.tensor(feats)
+#        # output['feat'] = torch.tensor(feats)
+#        output['feat'] = torch.stack(feats, dim=0)
+#        output['label'] = int(label)
+#        output['filename'] = data[0]['filename']
+#        return output
+#
+#    def read_seq(self, wsi):
+#        outputs = []
+#        for i in range(self.seq_len):
+#            outputs.append(next(wsi))
+#
+#        return outputs
+#
+#    def shift_wsi(self, batch_wsi, num_patches):
+#        random.seed(self.seed)
+#        # shift 1 or self.seq_len - 1 times
+#        # shift = random.randint(1,  - 1)
+#        # print('totoal {} number of wsis , shift {} number of tokens seq_len {} '.format(len(batch_wsi), shift, self.seq_len))
+#        tmp = []
+#        for wsi, num_patch in zip(batch_wsi, num_patches):
+#
+#            shift = random.randint(0, num_patch - 1)
+#            for i in range(shift):
+#                next(wsi)
+#
+#            tmp.append(wsi)
+#
+#        return tmp
+#
+#    def __iter__(self):
+#
+#        worker_info = torch.utils.data.get_worker_info()
+#
+#        # create a new list to avoid change the self.orig_wsis
+#        # during each epoch
+#        wsis = []
+#        for wsi in self.orig_wsis:
+#            wsis.append(wsi)
+#
+#        wsis = self.shuffle(wsis)
+#        # wsis = self.split_wsis(wsis) # used for ddp training
+#        # wsis = self.orgnize_wsis(wsis)
+#        # global_seq_len = self.cal_seq_len(wsis)
+#
+#        if self.data_set != 'train':
+#            wsis = self.set_direction(wsis, direction=0)
+#            if self.drop_last:
+#                raise ValueError('during inference, the drop_last should not be set to true')
+#        else:
+#            wsis = self.set_random_direction(wsis)
+#
+#        count = 0
+#        for idx in range(0, len(wsis), self.batch_size):#0
+#
+#            # add seeds here to avoid different seed value for
+#            # different workers if we set seed += 1024 at the
+#            # end of each data = next(x) loop (count might not
+#            # be divided by each )
+#            self.seed += 1024
+#
+#            batch_wsi = wsis[idx : idx + self.batch_size]
+#
+#            # assert len(batch_wsi) == self.batch_size
+#            if len(batch_wsi) < self.batch_size:
+#                if self.drop_last:
+#                    continue
+#
+#            num_patches = [w.num_patches for w in batch_wsi]
+#            batch_wsi = [self.cycle(x) for x in batch_wsi]
+#
+#            if self.data_set == 'train':
+#                batch_wsi = self.shift_wsi(batch_wsi, num_patches)
+#
+#
+#
+#            # max_len_idx = idx // self.batch_size
+#            # mex_len = self.wsi_len
+#
+#            # if not global_seq_len[max_len_idx]:
+#                # warnings.warn('max batch len equals 0')
+#                # continue
+#
+#            # max_len = global_seq_len[max_len_idx]
+#
+#            # if wsi len is not divisible by num_workers,
+#            # the last few elements will
+#            # change the order of reading next round
+#            # set a global counter to eliminate this issue
+#            for patch_idx in range(0, self.wsi_len, self.seq_len):#104
+#
+#                    outputs = []
+#                    for wsi in batch_wsi:
+#
+#                        # data = next(wsi)
+#                        data = self.read_seq(wsi)
+#
+#                        if worker_info is not None:
+#                            if count % worker_info.num_workers != worker_info.id:
+#                                continue
+#
+#                            #data['worker_id'] = worker_info.id
+#                            #data['count'] = self.count
+#                            #data['patch_idx'] = patch_idx
+#                            #data['seed'] = tmp_seed
+#                            # data['dir'] = tmp_dircts
+#                        data = self.read_img(data)
+#
+#                        # if patch_idx < max_len - 1:
+#                        # if patch_idx < self.wsi_len - 1:
+#                        if patch_idx < self.wsi_len - self.seq_len:
+#                            data['is_last'] = 0
+#                        else:
+#                            data['is_last'] = 1
+#
+#                        outputs.append(data)
+#
+#                    count += 1
+#
+#                    if outputs:
+#                        data = default_collate(outputs)
+#                        # print(data['label'])
+#                        yield data['feat'], data['label'], data['filename'], data['is_last']
+#

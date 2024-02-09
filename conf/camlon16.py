@@ -106,12 +106,8 @@ test_dirs = {
 # settings = Settings()
 class Settings:
     def __init__(self):
-        # self.label_fn = brac_label_fn
-        # self.train_dirs = train_dirs
-        # self.test_dirs = test_dirs
         self.mag = 20
         self.patch_size = 256
-        # self.root = '/data/smb/syh/WSI_cls/TCGA_BRCA/'
         self.root = '/data/smb/syh/WSI_cls/cam16/'
         self.wsi_dir = os.path.join(self.root, 'img')
         self.mask_dir = os.path.join(self.root, 'mask')
@@ -123,15 +119,6 @@ class Settings:
         self.anno_dir = os.path.join(self.root, 'anno')
         self.split_dir = 'datasets/splits/cam16'
         self.num_classes = 2
-
-    # def file_list(self):
-    #     # file = os.path.join(, 'dataset/dataset_csv/brac/brac.csv')
-    #     with open(self.file_list_csv, 'r') as csv_file:
-    #         for row in csv.DictReader(csv_file):
-    #             row['slide_id'] = os.path.join(_dataset_path, row['slide_id'])
-    #             yield row
-
-
-
+        self.max_len = 43950
 
 settings = Settings()

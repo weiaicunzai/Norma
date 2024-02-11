@@ -124,6 +124,7 @@ class  ModelInterface(pl.LightningModule):
         # self.valid_results_old = {}
         # self.valid_results_new = {}
         self.mems = None
+        # self.mems = []
 
 
     def update_prob_dict(self, prob_dict, prob, slide_id):
@@ -157,10 +158,18 @@ class  ModelInterface(pl.LightningModule):
         results_dict = self.model(data=data, label=label, mems=self.mems)
         self.mems = results_dict['mems']
         if is_last.sum() > 0:
-            self.mems = None
+            # self.mems = None
+            self.mems = []
 
-        if self.mems is not None:
-            print('mems', self.mems.shape)
+        # if self.mems is not None:
+        #     print('mems', self.mems.shape)
+        # else:
+        #     print('mems', self.mems)
+
+        if len(self.mems) > 0 :
+            print('mems', len(self.mems))
+            for mem in self.mems:
+                print(mem.shape)
         else:
             print('mems', self.mems)
 
@@ -334,10 +343,18 @@ class  ModelInterface(pl.LightningModule):
             results_dict = self.model(data=data, label=label, mems=self.mems)
             self.mems = results_dict['mems']
             if is_last.sum() > 0:
-                self.mems = None
+                # self.mems = None
+                self.mems = []
 
-            if self.mems is not None:
-                print('mems', self.mems.shape)
+            # if self.mems is not None:
+            #     print('mems', self.mems.shape)
+            # else:
+            #     print('mems', self.mems)
+
+            if len(self.mems) > 0 :
+                print('mems', len(self.mems))
+                for mem in self.mems:
+                    print(mem.shape)
             else:
                 print('mems', self.mems)
 
@@ -503,6 +520,7 @@ class  ModelInterface(pl.LightningModule):
         except:
             raise ValueError('Invalid Module File Name or Invalid Class Name!')
         self.model = self.instancialize(Model, max_len=self.settings.max_len)
+        print(self.model)
         pass
 
     def instancialize(self, Model, **other_args):

@@ -43,7 +43,7 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-class Attention1(nn.Module):
+class Attention(nn.Module):
     def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
         super().__init__()
         inner_dim = dim_head *  heads
@@ -67,30 +67,11 @@ class Attention1(nn.Module):
 
     def forward(self, x, mem=None, pos_emb=None):
 
-        # if mem is not None:
-        #     h = torch.cat((x, mem), dim=1)
-        #     x = self.norm(h)
-        #     # print('q before', q.shape, mem.shape)
-        # else:
-        #     x = self.norm(x)
-
-        # print(x.shape, pos_emb.shape)
-        # x = x + pos_emb
 
         x = self.norm(x)
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), (q, k, v))
-        # q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), (q, k, v))
-
-        # if mem is not None:
-        #     k = torch.cat((k, mem), dim=1)
-
-
-        # print(q.shape, 1)
-        # print(k.shape, 2)
-        # print(v.shape, 3)
-
 
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
 
@@ -100,13 +81,10 @@ class Attention1(nn.Module):
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
 
-        if mem is not None:
-            return self.to_out(out) + h
-        else:
-            return self.to_out(out)
+        return self.to_out(out)
 
 
-class Attention(nn.Module):
+class Attention1(nn.Module):
     def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
         super().__init__()
         inner_dim = dim_head *  heads
@@ -217,22 +195,49 @@ class Transformer(nn.Module):
 
     def forward(self, x, mems=None, pos_emb=None):
         hids = []
-        for (attn, ff), mem in zip(self.layers, mems):
-        # for attn, ff in self.layers:
+        # for (attn, ff), mem in zip(self.layers, mems):
+        for attn, ff in self.layers:
             # if mem is not None:
                 # x = torch.cat((x, mem), dim=1)
 
             # x = pos_emb + x
-            x = attn(x, mem, pos_emb) + x
-            # x = attn(x) + x
+            # x = attn(x, mem, pos_emb) + x
+            x = attn(x) + x
             # x = attn(x, mem, pos_emb)
             x = ff(x) + x
 
             hids.append(x[:,0])
 
         # return self.norm(x), hids
-        return self.norm(x), hids
+        return self.norm(x)
 
+
+
+class TransLayerSelfAttn(nn.Module):
+
+    def __init__(self, norm_layer=nn.LayerNorm, dim=512):
+        super().__init__()
+        self.norm = norm_layer(dim)
+        # self.attn = NystromAttention(
+        #    dim = dim,
+        #    dim_head = dim//8,
+        #    heads = 8,
+        #    num_landmarks = dim//2,    # number of landmarks
+        #    pinv_iterations = 6,    # number of moore-penrose iterations for approximating pinverse. 6 was recommended by the paper
+        #    residual = True,         # whether to do an extra residual with the value or not. supposedly faster convergence if turned on
+        #    dropout=0.1
+        # )
+        self.attn = Attention(
+            dim=dim,
+            heads = 8,
+            dim_head = dim // 8,
+            dropout = 0.1
+        )
+
+    def forward(self, x):
+        x = x + self.attn(self.norm(x))
+
+        return x
 
 class TransLayer(nn.Module):
 
@@ -277,15 +282,61 @@ class PPEG(nn.Module):
         x = torch.cat((cls_token.unsqueeze(1), x), dim=1)
         return x
 
+class PEG1D(nn.Module):
+    def __init__(self, dim=512):
+        super(PEG1D, self).__init__()
+        # self.proj = nn.Conv1d(dim, dim, 7, 1, 7//2, groups=dim)
+        # self.proj1 = nn.Conv1d(dim, dim, 5, 1, 5//2, groups=dim)
+        self.proj1 = nn.Conv1d(
+            in_channels=dim,
+            out_channels=dim,
+            kernel_size=3,
+            stride=1,
+            padding=(3 - 1) // 2,
+            groups=dim
+        )
+        self.chunk_length = 32
 
-class TransMIL1(nn.Module):
+    def pos_emb(self, x):
+        B, N, C = x.shape
+
+        chunk_length = self.chunk_length
+        num_seq = math.ceil(N / chunk_length)
+        # print(num_seq, num_seq * chunk_length, N)
+
+        padded_x = F.pad(x, (0, 0, 0,  num_seq * chunk_length - N))
+        padded_x = padded_x.view(B * num_seq, chunk_length, C).permute(0, 2, 1)
+
+        # print(padded_x.shape, 111)
+        pos_emb = self.proj1(padded_x)
+
+        pos_emb = pos_emb.permute(0, 2, 1).contiguous().view(B, num_seq * chunk_length, C)
+
+        return pos_emb[:, :N, :]
+
+    # def forward(self, x, H, W):
+    def forward(self, x):
+
+        pos_emb1 = self.pos_emb(x)
+
+        # shift x
+        shifted_x = torch.roll(x, shifts=self.chunk_length // 2, dims=1)
+        pos_emb2 = self.pos_emb(x)
+        pos_emb2 = torch.roll(pos_emb2, shifts=-self.chunk_length // 2, dims=1)
+
+        x = x + pos_emb1 + pos_emb2
+
+        return x
+
+class TransMIL(nn.Module):
     def __init__(self, n_classes, max_len):
         super(TransMIL, self).__init__()
         # net_dim = 512
         net_dim = 512
         # net_dim = 384
         # self.pos_layer = PPEG(dim=512)
-        self.pos_layer = PPEG(dim=net_dim)
+        # self.pos_layer = PPEG(dim=net_dim)
+        self.pos_layer1d = PEG1D(dim=net_dim)
         # self._fc1 = nn.Sequential(nn.Linear(1024, 512), nn.ReLU())
         # self._fc1 = nn.Sequential(nn.Linear(1024, net_dim), nn.ReLU())
         # input_dim = 384
@@ -295,18 +346,20 @@ class TransMIL1(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1, 1, net_dim))
         self.n_classes = n_classes
 
-        # self.layer1 = TransLayer(dim=net_dim)
-        # self.layer2 = TransLayer(dim=net_dim)
+        #self.layer1 = TransLayer(dim=net_dim)
+        #self.layer2 = TransLayer(dim=net_dim)
 
-        self.layer1 = Transformer(
-            dim=net_dim,
-            depth=2,
-            heads=8,
-            dim_head=net_dim // 8,
-            # mlp_dim=net_dim // 8 * 4,
-            mlp_dim=net_dim * 4,
-            dropout=0.1
-        )
+        self.layer1 = TransLayerSelfAttn(dim=net_dim)
+        self.layer2 = TransLayerSelfAttn(dim=net_dim)
+        # self.layer1 = Transformer(
+        #     dim=net_dim,
+        #     depth=1,
+        #     heads=8,
+        #     dim_head=net_dim // 8,
+        #     # mlp_dim=net_dim // 8 * 4,
+        #     mlp_dim=net_dim * 2,
+        #     dropout=0.1
+        # )
 
         # print(sum([p.numel() for p in self.layer1.parameters()]))
         # import sys; sys.exit()
@@ -315,7 +368,7 @@ class TransMIL1(nn.Module):
         #     depth=1,
         #     heads= 8,
         #     dim_head= net_dim // 8,
-        #     mlp_dim= net_dim // 8 * 4,
+        #     mlp_dim= net_dim * 2,
         #     dropout = 0.1
         # )
 
@@ -333,15 +386,7 @@ class TransMIL1(nn.Module):
         self._fc2 = nn.Linear(net_dim, self.n_classes)
 
 
-        # self.mem_length = 20
-        # self.mem_length = int(512 * 78 * 2 / (512 * 2) / 2)
-        # self.mem_length = 4
-        # self.mem_length = 2
-        # self.mem_length = 8
-        # self.mem_length = 8
-        # self.mem_length = 78
-        # self.mem_length = int(512 * 78 * 2 / (512 * 2) / 2)
-        # self.max_len = max_len
+
         # self.mem_length = 39
         self.mem_length = math.ceil(max_len / 1024)
         print('net_dim', net_dim, 'mem_length', self.mem_length)
@@ -371,8 +416,8 @@ class TransMIL1(nn.Module):
 
         h = self._fc1(h) #[B, n, 512]
 
-        # if mems is not None:
-        #     h = torch.cat((h, mems), dim=1)
+        if mems is not None:
+            h = torch.cat((h, mems), dim=1)
 
         #---->pad
         # H = h.shape[1]
@@ -385,20 +430,27 @@ class TransMIL1(nn.Module):
         cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
         h = torch.cat((cls_tokens, h), dim=1)
 
-        #---->PPEG
-        # h = self.pos_layer(h, _H, _W) #[B, N, 512]
-
-
         #---->Translayer x1
         h = self.layer1(h) #[B, N, 512]
 
+        #---->PPEG
+        # h = self.pos_layer(h, _H, _W) #[B, N, 512]
+
+        #---->PEG1
+        cls_tokens = h[:, 0, :].unsqueeze(dim=1)
+        h = h[:, 1:, :]
+        # print(cls_tokens.shape, h.shape)
+        h = self.pos_layer1d(h) #[B, N, 512]
+        h = torch.cat((cls_tokens, h), dim=1)
+
+
         #---->Translayer x2
-        # h = self.layer2(h) #[B, N, 512]
+        h = self.layer2(h) #[B, N, 512]
 
 
         # h = self.layer3(h) #[B, N, 512]
 
-        print(h.shape)
+        # print(h.shape)
 
         mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
 
@@ -417,7 +469,7 @@ class TransMIL1(nn.Module):
 
 
 
-class TransMIL(nn.Module):
+class TransMIL1(nn.Module):
     def __init__(self, n_classes, max_len):
         super(TransMIL, self).__init__()
         # net_dim = 512
@@ -439,20 +491,20 @@ class TransMIL(nn.Module):
 
         self.layer1 = Transformer(
             dim= net_dim,
-            depth=2,
+            depth=1,
             heads=8,
             dim_head= net_dim // 8,
-            mlp_dim= net_dim // 8 * 4,
+            mlp_dim= net_dim * 2,
             dropout = 0.1
         )
-        # self.layer2 = Transformer(
-        #     dim=net_dim,
-        #     depth=1,
-        #     heads= 8,
-        #     dim_head= net_dim // 8,
-        #     mlp_dim= net_dim // 8 * 4,
-        #     dropout = 0.1
-        # )
+        self.layer2 = Transformer(
+            dim=net_dim,
+            depth=1,
+            heads= 8,
+            dim_head= net_dim // 8,
+            mlp_dim= net_dim * 2,
+            dropout = 0.1
+        )
 
         # self.layer3 = Transformer(
         #     dim= net_dim,
@@ -481,7 +533,7 @@ class TransMIL(nn.Module):
         self.mem_length = math.ceil(max_len / 1024)
         print('net_dim', net_dim, 'mem_length', self.mem_length)
 
-        self.pos_emb = PositionalEmbedding(net_dim)
+        # self.pos_emb = PositionalEmbedding(net_dim)
 
     def _update_all_mems(self, mems, hids):
         res = []
@@ -516,12 +568,12 @@ class TransMIL(nn.Module):
 
         h = self._fc1(h) #[B, n, 512]
 
-        # if mems is not None:
-        #     h = torch.cat((h, mems), dim=1)
+        if mems is not None:
+            h = torch.cat((h, mems), dim=1)
 
-        if len(mems) == 0 :
+        # if len(mems) == 0 :
             # mems = [None, None, None]
-            mems = [None, None]
+            # mems = [None, None]
             # mems = [
             #     torch.empty(0, dtype=h.dtype, device=h.device),
             #     torch.empty(0, dtype=h.dtype, device=h.device),
@@ -529,10 +581,10 @@ class TransMIL(nn.Module):
             # ]
             # mems = [None, None, None]
         #---->pad
-        # H = h.shape[1]
-        # _H, _W = int(np.ceil(np.sqrt(H))), int(np.ceil(np.sqrt(H)))
-        # add_length = _H * _W - H
-        # h = torch.cat([h, h[:,:add_length,:]],dim = 1) #[B, N, 512]
+        H = h.shape[1]
+        _H, _W = int(np.ceil(np.sqrt(H))), int(np.ceil(np.sqrt(H)))
+        add_length = _H * _W - H
+        h = torch.cat([h, h[:,:add_length,:]],dim = 1) #[B, N, 512]
 
         #---->cls_token
         B = h.shape[0]
@@ -542,22 +594,23 @@ class TransMIL(nn.Module):
         #---->PPEG
         # h = self.pos_layer(h, _H, _W) #[B, N, 512]
 
-        if mems[0] is None:
-            mem_len = 0
-        else:
-            mem_len = mems[0].shape[1]
+        # if mems[0] is None:
+        #     mem_len = 0
+        # else:
+        #     mem_len = mems[0].shape[1]
 
-        klen = h.shape[1] + mem_len
+        # klen = h.shape[1] + mem_len
         # print(h.shape)
-        pos_seq = torch.arange(klen - 1, -1, -1.0, device=h.device,
-                                   dtype=h.dtype)
+        # pos_seq = torch.arange(klen - 1, -1, -1.0, device=h.device,
+        #                            dtype=h.dtype)
 
         # print(pos_seq.shape, 'pos_seq')
-        pos_emb = self.pos_emb(pos_seq)
+        # pos_emb = self.pos_emb(pos_seq)
         # print(pos_emb.shape, 'pos_emb.shape', klen)
         #---->Translayer x1
         # print(h.shape, 'h.shape', mem_len)
-        h, hids = self.layer1(h, mems=mems, pos_emb=pos_emb) #[B, N, 512]
+        # h, hids = self.layer1(h, mems=mems, pos_emb=pos_emb) #[B, N, 512]
+        h, hids = self.layer1(h) #[B, N, 512]
 
         #---->Translayer x2
         # h = self.layer2(h) #[B, N, 512]
@@ -566,8 +619,8 @@ class TransMIL(nn.Module):
         # h = self.layer3(h) #[B, N, 512]
 
 
-        # mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
-        mems = self._update_all_mems(mems, hids)
+        mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
+        # mems = self._update_all_mems(mems, hids)
 
         #---->cls_token
         # h = self.norm(h)[:,0]
@@ -586,15 +639,22 @@ if __name__ == "__main__":
     data = torch.randn((1, 1024, 1024)).cuda()
     model = TransMIL(n_classes=2, max_len=40000).cuda()
 
-    # mems = None
-    mems = []
-    for i in range(100):
-        out  = model(data=data, mems=mems)
-        mems = out['mems']
-        # print(mems.shape, 'mems')
-        for m in mems:
-            print(m.shape, 'mems')
+    mems = None
+    # mems = []
+    print(sum([p.numel() for p in model.parameters()]))
+    print(model)
+    with torch.no_grad():
+        for i in range(100):
+            out  = model(data=data, mems=mems)
+            mems = out['mems']
+            print(mems.shape, 'mems')
+        # for m in mems:
+            # print(m.shape, 'mems')
 
     # print(model.eval())
     # results_dict = model(data = data)
     # print(results_dict)
+
+    # data = torch.randn(1, 1024 + 31, 512)
+    # net = PEG1D()
+    # out = net(data)

@@ -158,20 +158,20 @@ class  ModelInterface(pl.LightningModule):
         results_dict = self.model(data=data, label=label, mems=self.mems)
         self.mems = results_dict['mems']
         if is_last.sum() > 0:
-            # self.mems = None
-            self.mems = []
+            self.mems = None
+            # self.mems = []
 
-        # if self.mems is not None:
-        #     print('mems', self.mems.shape)
-        # else:
-        #     print('mems', self.mems)
-
-        if len(self.mems) > 0 :
-            print('mems', len(self.mems))
-            for mem in self.mems:
-                print(mem.shape)
+        if self.mems is not None:
+            print('mems', self.mems.shape)
         else:
             print('mems', self.mems)
+
+        # if len(self.mems) > 0 :
+        #     print('mems', len(self.mems))
+        #     for mem in self.mems:
+        #         print(mem.shape)
+        # else:
+        #     print('mems', self.mems)
 
         logits = results_dict['logits']
         Y_prob = results_dict['Y_prob']
@@ -343,20 +343,20 @@ class  ModelInterface(pl.LightningModule):
             results_dict = self.model(data=data, label=label, mems=self.mems)
             self.mems = results_dict['mems']
             if is_last.sum() > 0:
-                # self.mems = None
-                self.mems = []
+                self.mems = None
+                # self.mems = []
 
-            # if self.mems is not None:
-            #     print('mems', self.mems.shape)
-            # else:
-            #     print('mems', self.mems)
-
-            if len(self.mems) > 0 :
-                print('mems', len(self.mems))
-                for mem in self.mems:
-                    print(mem.shape)
+            if self.mems is not None:
+                print('mems', self.mems.shape)
             else:
                 print('mems', self.mems)
+
+            # if len(self.mems) > 0 :
+            #     print('mems', len(self.mems))
+            #     for mem in self.mems:
+            #         print(mem.shape)
+            # else:
+            #     print('mems', self.mems)
 
         logits = results_dict['logits']
         Y_prob = results_dict['Y_prob']

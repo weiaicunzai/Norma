@@ -1,413 +1,129 @@
+import argparse
 import os
 import sys
 sys.path.append(os.getcwd())
-from PIL import Image
+import time
 
 
-from torchvision import transforms
-
-from dataset.wsi_reader import camlon16_wsis
-from conf.camlon16 import settings
-from dataset.dist_dataloader import DistWSIDataLoader
-from dataset.wsi_dataset import WSIDataset
-from dataset.dataloader import WSIDataLoader
-# from utils.utils import init_process
-# from dataset. import
+from datasets.camel_data import WSIDataset
+import torch
+import pandas as pd
+from datasets.wsi import WSIJSON
 
 
+def get_wsi(slide, json_dir):
+    json_path = os.path.join(json_dir, slide + '.json')
+    print('load json {}'.format(json_path))
+    return WSIJSON(json_path=json_path, direction=0)
 
+class MyWSIDataset(WSIDataset):
 
-from torch.utils.data import Dataset
-
-# class Test1(Dataset):
-#     def __init__(self, trans):
-#         super().__init__()
-#         self.trans = trans
-
-#     def __len__(self):
-#         return 10000
-
-#     def __getitem__(self, index):
-#         img = Image.open('/data/hdd1/by/tmp_folder/lmdb_files/Ldbm_task/cat.jpeg')
-#         if self.trans:
-#             img = self.trans(image=img)['image']
-#         return img
-
-
-# dataset = Test()
-# import torch
-# dataloader = torch.utils.data.DataLoader(dataset, batch_size=17, num_workers=4)
-
-
-
-def build_small_dataloader(img_set):
-    from dataset import camlon16_wsis
-    wsis = camlon16_wsis(img_set)
-    # print(len(wsis))
-
-    tmp = []
-    for wsi in wsis:
-        if wsi.wsi_label == 0:
-            print(wsi.num_patches)
-            tmp.append(wsi)
-
-            if len(tmp) == 16:
-                break
-
-    for wsi in wsis:
-        if wsi.wsi_label == 1:
-            print(wsi.num_patches)
-            tmp.append(wsi)
-
-            if len(tmp) == 16 * 2:
-                break
-
-
-    # print(len(wsis))
-    # import sys; sys.exit()
-
-    # from dataset import WSILMDB
-    wsis = tmp
-
-    from dataset.utils import A_trans
-    if img_set == 'train':
-        trans = A_trans(img_set)
-    else:
-        trans = A_trans(img_set)
-
-    from dataset.wsi_dataset import WSIDataset
-    from dataset.dataloader import WSIDataLoader
-
-
-    dataloader = WSIDataLoader(
-            wsis,
-            shuffle=True,
-            batch_size=32,
-            cls_type=WSIDataset,
-            pin_memory=True,
-            num_workers=4,
-            transforms=trans,
-            allow_repeat=False,
-            drop_last=True,
+    def get_wsis(self, data_set, fold):
+        # wsis = self.data_set()
+        # from conf.camlon16 import settings
+        file_list = pd.read_csv(self.settings.file_list_csv)
+        file_list['slide_id'] = file_list['slide_id'].apply(
+            lambda x: os.path.splitext(x)[0]
         )
+        split_file = os.path.join(self.settings.split_dir, 'splits_{}.csv'.format(fold))
+        splits = pd.read_csv(split_file)
+        train_split = splits['train'].dropna()
+        val_split = splits['val'].dropna()
+        test_split = splits['test'].dropna()
 
-    # for data in dataloader:
-        # print
-
-    return dataloader
-
-
-
-
-def test_camlon16_num_workers():
-    from dataset.utils import build_transforms, build_dataloader
-
-    # trans = build_transforms('train')
-    #def build_dataloader(dataset_name, img_set, dist, batch_size, num_workers, num_gpus=None):
-
-    dataloader = build_dataloader('cam16', img_set='train', dist=False, batch_size=270, num_workers=4)
-    # dataloader = build_small_dataloader('train')
-    print(dataloader)
-
-    import time
-    t1 = time.time()
-    from viztracer import VizTracer
+        if data_set == 'train':
+            mask1 = file_list['slide_id'].isin(train_split)
+            mask2 = file_list['slide_id'].isin(val_split)
+            slide_ids = file_list['slide_id'][mask1 | mask2]
+        else:
+            mask1 = file_list['slide_id'].isin(test_split)
+            slide_ids = file_list['slide_id'][mask1]
 
 
-    # tracer = VizTracer()
-    # tracer.start()
-    for e in range(10):
-        for iter_idx, data in enumerate(dataloader):
-        # print(data['is_last'])
-        # print(data.keys())
-            print(data['img'].shape)
-        # print(data['img'].shape)
-        # if iter_idx > 40:
-            # break
-        # print(data['label'])
-        # if data['is_last'].sum() > 0:
-        #     print(data)
-            t2 = time.time()
-            print(iter_idx, (t2 - t1) / (iter_idx + 1e-8))
-        # print(data['is_last'])
-            if iter_idx > 30:
-                break
+        wsis = []
 
 
 
+        # pool = mp.Pool(processes=mp.cpu_count())
+        print('start load json')
+        t1 = time.time()
+        # pool = mp.Pool(processes=mp.cpu_count())
+        # pool = mp.Pool(processes=4)
+        # fn = functools.partial(get_wsi, json_dir=self.settings.json_dir)
+        # wsis = pool.map(fn, slide_ids.tolist())
+        wsis = []
+        slide_ids = slide_ids[-10:]
+        for slide_id in slide_ids:
+            wsi = get_wsi(slide_id, self.settings.json_dir)
+            wsis.append(wsi)
 
-    # tracer.stop()
-    # tracer.save('results_wsidataloader1.json')
+        print('done load json {}'.format(time.time() - t1))
 
-    # count = 0
-    # for filenames in settings.get_filenames('train'):
-    #     count += 1
-
-    #     # self.wsi_filenames.append(i)
-    #     # print(wsi_path, label_fn(wsi_path))
-    #     # wsis.append(
-    #     wsi = WSI(
-    #         filenames['wsi'],
-    #         filenames['json'],
-    #         # mask_path(wsi_path),
-    #         # patch_size=512,
-    #         # at_mag=5,
-    #         # random_rotate=True,
-    #         # label_fn=label_fn,
-    #         direction=-1
-    #     )
-
-    #     if wsi.num_patches > 0:
-    #         wsis.append(wsi)
-
-    #     else:
-    #         print(wsi_path, 'is 0')
-    #     if count > 10:
-    #         break
-
-    # wsis = camlon16_wsis('train')
-
-    # wsis = wsis[:20]
+        return wsis
 
 
-    #img_size = (256, 256)
-    #trans = transforms.Compose([
-    #        # transforms.RandomRotation(30),
-    #        transforms.RandomResizedCrop(img_size, scale=(0.5, 2.0), ratio=(1,1)),
-    #        # transforms.RandomApply(
-    #        #     transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
-    #        #     p=0.5
-    #        # ),
+def get_args_parser():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--dataset', required=True, default=None)
+
+    return parser.parse_args()
 
 
-    #        transforms.RandomChoice
-    #            (
-    #                [
-    #                    # nothing:
-    #                    transforms.Compose([]),
+if __name__ == '__main__':
+    args = get_args_parser()
+    if args.dataset == 'cam16':
+         from conf.camlon16 import settings
 
-    #                    # h:
-    #                    transforms.RandomHorizontalFlip(p=1),
-
-    #                    # v:
-    #                    transforms.RandomVerticalFlip(p=1),
-
-    #                    # hv:
-    #                    transforms.Compose([
-    #                           transforms.RandomVerticalFlip(p=1),
-    #                           transforms.RandomHorizontalFlip(p=1),
-    #                    ]),
-
-    #                     #r90:
-    #                    # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-    #                    # transforms.MyRotate90(degrees=(90, 90), expand=True, p=1),
-    #                    # transforms.MyRotate90(p=1),
-    #                    transforms.RandomRotation(degrees=(90, 90)),
-
-    #                    # #r90h:
-    #                    transforms.Compose([
-    #                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-    #                        # transforms.MyRotate90(p=1),
-    #                        transforms.RandomRotation(degrees=(90, 90)),
-    #                        transforms.RandomHorizontalFlip(p=1),
-    #                    ]),
-
-    #                    # #r90v:
-    #                    transforms.Compose([
-    #                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-    #                        # transforms.MyRotate90(p=1),
-    #                        transforms.RandomRotation(degrees=(90, 90)),
-    #                        transforms.RandomVerticalFlip(p=1),
-    #                    ]),
-
-    #                    # #r90hv:
-    #                    transforms.Compose([
-    #                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-    #                        # transforms.MyRotate90(p=1),
-    #                        transforms.RandomRotation(degrees=(90, 90)),
-    #                        transforms.RandomHorizontalFlip(p=1),
-    #                        transforms.RandomVerticalFlip(p=1),
-    #                    ]),
-    #                ]
-    #            ),
-
-    #        transforms.RandAugment(num_ops=2, magnitude=9, num_magnitude_bins=10),
-    #        # transforms.RandomCrop(img_size),
-    #        #transforms.RandomApply(
-    #        #    transforms=[transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)],
-    #        #    p=0.3
-    #        #),
-    #        #transforms.RandomGrayscale(p=0.1),
-    #        # transforms.RandomHorizontalFlip(p=0.5),
-    #        # transforms.RandomVerticalFlip(p=0.5),
-    #        transforms.ToTensor(),
-    #        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    #])
+    else:
+         raise ValueError('wrong value')
 
 
-    #import albumentations as A
-    #trans = A.Compose([
-    #            A.RandomResizedCrop(height=img_size[0], width=img_size[1], scale=(0.5, 2.0), ratio=(1, 1), always_apply=True),
-    #            # transforms.RandomChoice
-    #            A.OneOf(
-    #                [
-    #                    # nothing:
-    #                    A.Compose([]),
+    dataset1 = MyWSIDataset(
+        settings=settings,
+        data_set='train',
+        fold=0,
+        batch_size=8
+    )
 
-    #                    # h:
-    #                    # transforms.RandomHorizontalFlip(p=1),
-    #                    A.HorizontalFlip(p=1),
-
-    #                    # v:
-    #                    # transforms.RandomVerticalFlip(p=1),
-    #                    A.VerticalFlip(p=1),
-
-    #                    # hv:
-    #                    # transforms.Compose([
-    #                    A.Compose([
-    #                           #transforms.RandomVerticalFlip(p=1),
-    #                           #transforms.RandomHorizontalFlip(p=1),
-    #                           A.VerticalFlip(p=1),
-    #                           A.HorizontalFlip(p=1),
-    #                    ]),
-
-    #                     #r90:
-    #                    # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-    #                    # transforms.MyRotate90(degrees=(90, 90), expand=True, p=1),
-    #                    # transforms.MyRotate90(p=1),
-    #                    # transforms.RandomRotation(degrees=(90, 90)),
-    #                    A.Rotate([90,90]),
-
-    #                    # #r90h:
-    #                    # transforms.Compose([
-    #                    A.Compose([
-    #                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-    #                        # transforms.MyRotate90(p=1),
-    #                        A.Rotate([90, 90]),
-    #                        # transforms.RandomHorizontalFlip(p=1),
-    #                        A.HorizontalFlip(p=1),
-    #                    ]),
-
-    #                    # #r90v:
-    #                    # transforms.Compose([
-    #                    A.Compose([
-    #                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-    #                        # transforms.MyRotate90(p=1),
-    #                        # transforms.RandomRotation(degrees=(90, 90)),
-    #                        A.Rotate([90, 90]),
-    #                        # transforms.RandomVerticalFlip(p=1),
-    #                        A.VerticalFlip(p=1)
-    #                    ]),
-
-    #                    # #r90hv:
-    #                    # transforms.Compose([
-    #                    A.Compose([
-    #                        # transforms.RandomRotation(degrees=(90, 90), expand=True, p=1),
-    #                        # transforms.MyRotate90(p=1),
-    #                        # transforms.RandomRotation(degrees=(90, 90)),
-    #                        A.Rotate([90, 90]),
-    #                        #transforms.RandomHorizontalFlip(p=1),
-    #                        #transforms.RandomVerticalFlip(p=1),
-    #                        A.HorizontalFlip(p=1),
-    #                        A.VerticalFlip(p=1),
-    #                    ]),
-    #                ]
-    #            ),
-    #            A.ColorJitter(brightness=0.4, saturation=0.4, contrast=0.4, hue=0.1, p=1),
-    #            A.Compose([
-    #                A.ToGray(p=1),
-    #                A.ToRGB(p=1)
-    #            ], p=0.1)
-    #])
-
-    ## img = Image.open('/data/hdd1/by/tmp_folder/lmdb_files/Ldbm_task/cat.jpeg')
-    ## img = trans(img)
-    ## img.save('here.jpg')
-
-    ## import sys; sys.exit()
-
-    #dataloader = WSIDataLoader(
-    #    wsis,
-    #    batch_size=17,
-    #    # num_gpus=3,
-    #    cls_type=WSIDataset,
-    #    num_workers=4,
-    #    transforms=trans,
-    #    drop_last=True,
-    #)
-
-    #import torch
-    #bs = 32
-    ## dataset = Test1(trans=trans)
-    ## dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, num_workers=4)
-
-    ## for i in
-    #count = 0
-    #import time
-    #start = time.time()
-    #for e in range(10):
-    #    for batch in dataloader:
-    #        # print(len(batch))
-    #        # print(batch['img'].shape)
-    #        # print(batch['label'].shape)
-    #        # print(batch.shape)
-    #        count += bs
-    #        end = time.time()
-    #        print((end - start) / count)
-
-    #    print('end of each epoch')
-    #    end = time.time()
-    #    print((end - start) / count)
+    # dataset1.orig_wsis = dataset1.orig_wsis[:10]
+    dataset2 = MyWSIDataset(
+        settings=settings,
+        data_set='train',
+        fold=0,
+        batch_size=8
+    )
+    # dataset2.orig_wsis = dataset2.orig_wsis[:10]
 
 
-# from torch.utils.data import IterableDataset, DataLoader, get_worker_info
-# class Test(IterableDataset):
-#     def __init__(self):
-#         self.count = 0
-
-#     def update(self):
-#         self.count += 1
-
-#     def __iter__(self):
-#         worker = get_worker_info()
-#         print(worker, worker.dataset.count, id(worker.dataset))
-#         self.count += 1
-#         for i in range(10):
-#             yield i
-
-#         print(self.count, 'in')
-
-# def test_dataset_within_dataloader():
-
-#     # dataset = Test()
-#     dataloader = DataLoader(
-#         dataset,
-#         batch_size=None,
-#         num_workers=1
-#     )
-
-#     import time
-#     t1 = time.time()
-#     for epoch in range(10):
-#         for idx, data in enumerate(dataloader):
-#             print(data['img'].shape)
-#             print(data['label'].shape)
-#             t2 = time.time() - t1
-#             print(t2 / idx)
-
-#         print(dataloader.dataset.count, 'out')
-#         dataloader.dataset.update()
-
-#     print(id(dataset), id(dataloader.dataset))
-#     print(dataset.count, dataloader.dataset.count)
+    dataloader1 = torch.utils.data.DataLoader(dataset1, batch_size=None, num_workers=0)
+    dataloader2 = torch.utils.data.DataLoader(dataset2, batch_size=None, num_workers=4, persistent_workers=True)
 
 
-    # for epoch in range(10):
-    #     for i in dataset:
-    #         pass
+    for i in range(5):
+        count = 0
+        for data1, data2 in zip(dataloader1, dataloader2):
+            #yield data['feat'], data['label'], data['filename'], data['is_last']
+            feat1, label1, filename1, is_last1, seed1 = data1
+            feat2, label2, filename2, is_last2, seed2 = data2
 
+            # feat1 = feat1.cuda(no_blo)
 
-    # print(dataset.count)
+            # feat1 = data1[0]
+            # feat2 = data2[0]
+            # print(feat1.shape)
+            # print((feat1 - feat2).mean())
+            count += 1
+            # print((feat1 - feat2).mean())
+            # print((label1 - feat2).mean())
+            print('epoch {},  iter {}'.format(i, count))
+            print('feat', torch.equal(feat1, feat2))
+            print('label', torch.equal(label1, label2))
+            # print('epoch', i, count, torch.equal(feat1, feat2))
+            print('is_last', torch.equal(is_last1, is_last2))
+            print('seeds', torch.equal(seed1, seed2))
+            print(seed1, seed2)
 
-test_camlon16_num_workers()
-# test_dataset_within_dataloader()
+            print(len(filename1) == len(filename2))
+            for f1, f2 in zip(filename1, filename2):
+                # print(f1 == f2)
+                print(f1, f2)

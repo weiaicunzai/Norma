@@ -1705,6 +1705,8 @@ class WSIDataset(data.IterableDataset):
         # assert data_set in ['train', 'val']
         print(self)
 
+        assert data_set in ['train', 'val', 'test']
+
 
         self.batch_size = batch_size
         self.drop_last = drop_last
@@ -1792,7 +1794,8 @@ class WSIDataset(data.IterableDataset):
         # print(val_split, train_split, test_split)
 
 
-        if data_set != 'test':
+        # if data_set != 'test':
+        if data_set == 'train':
             mask1 = file_list['slide_id'].isin(train_split)
             mask2 = file_list['slide_id'].isin(val_split)
             slide_ids = file_list['slide_id'][mask1 | mask2]
@@ -2029,6 +2032,7 @@ class WSIDataset(data.IterableDataset):
             wsis.append(wsi)
 
         wsis = self.shuffle(wsis)
+
         # wsis = self.split_wsis(wsis) # used for ddp training
         # wsis = self.orgnize_wsis(wsis)
         # global_seq_len = self.cal_seq_len(wsis)
@@ -2070,7 +2074,6 @@ class WSIDataset(data.IterableDataset):
 
             if self.data_set == 'train':
                 batch_wsi = self.shift_wsi(batch_wsi, num_patches)
-
 
 
             # max_len_idx = idx // self.batch_size

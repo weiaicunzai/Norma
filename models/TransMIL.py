@@ -244,21 +244,21 @@ class TransLayer(nn.Module):
     def __init__(self, norm_layer=nn.LayerNorm, dim=512):
         super().__init__()
         self.norm = norm_layer(dim)
-        self.attn = NystromAttention(
-           dim = dim,
-           dim_head = dim//8,
-           heads = 8,
-           num_landmarks = dim//2,    # number of landmarks
-           pinv_iterations = 6,    # number of moore-penrose iterations for approximating pinverse. 6 was recommended by the paper
-           residual = True,         # whether to do an extra residual with the value or not. supposedly faster convergence if turned on
-           dropout=0.1
-        )
-        # self.attn = Attention(
-        #     dim=dim,
-        #     heads = 8,
-        #     dim_head = dim // 8,
-        #     dropout = 0.1
+        # self.attn = NystromAttention(
+        #    dim = dim,
+        #    dim_head = dim//8,
+        #    heads = 8,
+        #    num_landmarks = dim//2,    # number of landmarks
+        #    pinv_iterations = 6,    # number of moore-penrose iterations for approximating pinverse. 6 was recommended by the paper
+        #    residual = True,         # whether to do an extra residual with the value or not. supposedly faster convergence if turned on
+        #    dropout=0.1
         # )
+        self.attn = Attention(
+            dim=dim,
+            heads = 8,
+            dim_head = dim // 8,
+            dropout = 0.1
+        )
 
     def forward(self, x):
         x = x + self.attn(self.norm(x))
@@ -420,10 +420,10 @@ class TransMIL(nn.Module):
             h = torch.cat((h, mems), dim=1)
 
         #---->pad
-        # H = h.shape[1]
-        # _H, _W = int(np.ceil(np.sqrt(H))), int(np.ceil(np.sqrt(H)))
-        # add_length = _H * _W - H
-        # h = torch.cat([h, h[:,:add_length,:]],dim = 1) #[B, N, 512]
+        H = h.shape[1]
+        _H, _W = int(np.ceil(np.sqrt(H))), int(np.ceil(np.sqrt(H)))
+        add_length = _H * _W - H
+        h = torch.cat([h, h[:,:add_length,:]],dim = 1) #[B, N, 512]
 
         #---->cls_token
         B = h.shape[0]
@@ -642,6 +642,7 @@ if __name__ == "__main__":
     mems = None
     # mems = []
     print(sum([p.numel() for p in model.parameters()]))
+<<<<<<< HEAD
     print(model)
     with torch.no_grad():
         for i in range(100):
@@ -650,6 +651,14 @@ if __name__ == "__main__":
             print(mems.shape, 'mems')
         # for m in mems:
             # print(m.shape, 'mems')
+=======
+    for i in range(100):
+        out  = model(data=data, mems=mems)
+        mems = out['mems']
+        # print(mems.shape, 'mems')
+        for m in mems:
+            print(m.shape, 'mems')
+>>>>>>> 7257462 (fix: num_workers=4 set persistence_workers=True)
 
     # print(model.eval())
     # results_dict = model(data = data)

@@ -886,6 +886,7 @@ class WSIJSON(PatchLabelMixIn, FiterCoordsMixIn):
         # all patches
         self.coords = parsed_json['coords']
 
+        self.filename = parsed_json['filename']
         # only wsi-level patches
         # self.coords = self.parse_coords(parsed_json, json_path)
 
@@ -896,6 +897,7 @@ class WSIJSON(PatchLabelMixIn, FiterCoordsMixIn):
         assert direction in [0, 1, 2, 3, 4, 5, 6, 7, -1]
         self.direction = direction
         self.json_patch = json_path
+
 
         self.cache = {}
 
@@ -921,7 +923,8 @@ class WSIJSON(PatchLabelMixIn, FiterCoordsMixIn):
         for coord in coords:
             # with env.open()
             # self.env = lmdb.open(db_path, readonly=True)
-            basename = os.path.basename(self.json_patch).replace('json', 'tif')
+            # basename = os.path.basename(self.json_patch).replace('json', 'tif')
+            basename = self.filename
             (x, y), level, (patch_size_x, patch_size_y) = coord
                 # print(x, y, level, patch_size_x, patch_size_y)
             patch_id = '{basename}_{x}_{y}_{level}_{patch_size_x}_{patch_size_y}'.format(

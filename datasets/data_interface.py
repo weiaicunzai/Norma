@@ -392,15 +392,14 @@ class WSIDataModule(pl.LightningDataModule):
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=True)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=False)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=False)
-        print('num_workers 4')
-        return DataLoader(self.train_dataset, batch_size=None, num_workers=4, shuffle=False)
+        return DataLoader(self.train_dataset, batch_size=None, num_workers=4, shuffle=False, persistent_workers=True)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=True)
 
     def val_dataloader(self):
         # return DataLoader(self.val_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=False)
         # return DataLoader(self.val_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=False)
-        return DataLoader(self.val_dataset, batch_size=None, num_workers=4, shuffle=False)
+        return DataLoader(self.val_dataset, batch_size=None, num_workers=4, shuffle=False, persistent_workers=True)
 
     def test_dataloader(self):
         # return DataLoader(self.test_dataset, batch_size=self.test_batch_size, num_workers=self.test_num_workers, shuffle=False)
-        return DataLoader(self.test_dataset, batch_size=None, num_workers=4, shuffle=False)
+        return DataLoader(self.test_dataset, batch_size=None, num_workers=4, shuffle=False, persistent_workers=True)

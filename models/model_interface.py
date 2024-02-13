@@ -162,7 +162,9 @@ class  ModelInterface(pl.LightningModule):
             # self.mems = []
 
         if self.mems is not None:
-            print('mems', self.mems.shape)
+            print('mems', self.mems)
+            for mem in self.mems:
+                print(mem.shape)
         else:
             print('mems', self.mems)
 
@@ -347,7 +349,9 @@ class  ModelInterface(pl.LightningModule):
                 # self.mems = []
 
             if self.mems is not None:
-                print('mems', self.mems.shape)
+                # print('mems', self.mems.shape)
+                for mem in self.mems:
+                    print(mem.shape, 'mems')
             else:
                 print('mems', self.mems)
 

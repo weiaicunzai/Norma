@@ -43,6 +43,72 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+class AttentionMem(nn.Module):
+    def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0., use_pos=False):
+        super().__init__()
+        inner_dim = dim_head *  heads
+        project_out = not (heads == 1 and dim_head == dim)
+
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+
+        self.norm = nn.LayerNorm(dim)
+
+        self.attend = nn.Softmax(dim = -1)
+        self.dropout = nn.Dropout(dropout)
+
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
+
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
+
+        self.use_pos = use_pos
+
+        if self.use_pos:
+            self.peg1d_k = PEG1D(dim=dim)
+            self.peg1d_v = PEG1D(dim=dim)
+
+
+    def forward(self, x, mem=None):
+
+
+        x = self.norm(x)
+
+        q, k, v = self.to_qkv(x).chunk(3, dim = -1)
+
+        if mem is not None:
+            # print(mem.shape, k.shape, '1111111111111')
+            k = torch.cat((k, mem), dim=1)
+            v = torch.cat((v, mem), dim=1)
+
+            # print(self.use_pos)
+            if self.use_pos:
+                cls_token = k[:, 0, :].unsqueeze(dim=1)
+                k = k[:, 1:, :]
+                k = self.peg1d_k(k)
+                k = torch.cat((cls_token, k), dim=1)
+
+                cls_token = v[:, 0, :].unsqueeze(dim=1)
+                v = v[:, 1:, :]
+                v = self.peg1d_v(v)
+                v = torch.cat((cls_token, v), dim=1)
+
+
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), (q, k, v))
+
+        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+
+        attn = self.attend(dots)
+        attn = self.dropout(attn)
+
+        out = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+
+
+        return self.to_out(out)
+
 class Attention(nn.Module):
     def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
         super().__init__()
@@ -212,6 +278,40 @@ class Transformer(nn.Module):
         return self.norm(x)
 
 
+class SelfAttnMEMLayer(nn.Module):
+
+    def __init__(self, norm_layer=nn.LayerNorm, dim=512, use_pos=False):
+        super().__init__()
+        self.norm = norm_layer(dim)
+        # self.attn = NystromAttention(
+        #    dim = dim,
+        #    dim_head = dim//8,
+        #    heads = 8,
+        #    num_landmarks = dim//2,    # number of landmarks
+        #    pinv_iterations = 6,    # number of moore-penrose iterations for approximating pinverse. 6 was recommended by the paper
+        #    residual = True,         # whether to do an extra residual with the value or not. supposedly faster convergence if turned on
+        #    dropout=0.1
+        # )
+        # self.attn = Attention(
+        #     dim=dim,
+        #     heads = 8,
+        #     dim_head = dim // 8,
+        #     dropout = 0.1
+        # )
+        self.attn = AttentionMem(
+            dim=dim,
+            heads=8,
+            dim_head = dim // 8,
+            dropout = 0.1,
+            use_pos=use_pos
+        )
+
+    def forward(self, x, mem=None):
+        x = x + self.attn(self.norm(x), mem=mem)
+
+        return x
+
+
 
 class TransLayerSelfAttn(nn.Module):
 
@@ -349,8 +449,10 @@ class TransMIL(nn.Module):
         #self.layer1 = TransLayer(dim=net_dim)
         #self.layer2 = TransLayer(dim=net_dim)
 
-        self.layer1 = TransLayerSelfAttn(dim=net_dim)
-        self.layer2 = TransLayerSelfAttn(dim=net_dim)
+        #self.layer1 = TransLayerSelfAttn(dim=net_dim)
+        #self.layer2 = TransLayerSelfAttn(dim=net_dim)
+        self.layer1 = SelfAttnMEMLayer(dim=net_dim, use_pos=False)
+        self.layer2 = SelfAttnMEMLayer(dim=net_dim, use_pos=True)
         # self.layer1 = Transformer(
         #     dim=net_dim,
         #     depth=1,
@@ -405,6 +507,14 @@ class TransMIL(nn.Module):
         # print('mem updated after', mems[0, :, 55])
         return mems
 
+    def _update_all_mems(self, mems, hids):
+        res = []
+        for mem, h in zip(mems, hids):
+            mem = self._update_mems(mem, h.unsqueeze(dim=1))
+            res.append(mem)
+
+        return res
+
     def forward(self, **kwargs):
 
         h = kwargs['data'].float() #[B, n, 1024]
@@ -416,8 +526,8 @@ class TransMIL(nn.Module):
 
         h = self._fc1(h) #[B, n, 512]
 
-        if mems is not None:
-            h = torch.cat((h, mems), dim=1)
+        # if mems is not None:
+        #     h = torch.cat((h, mems), dim=1)
 
         #---->pad
         H = h.shape[1]
@@ -430,29 +540,37 @@ class TransMIL(nn.Module):
         cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
         h = torch.cat((cls_tokens, h), dim=1)
 
+        if mems is None:
+            mems = [None, None]
+
+        hids = []
         #---->Translayer x1
-        h = self.layer1(h) #[B, N, 512]
+        h = self.layer1(h, mem=mems[0]) #[B, N, 512]
+        # print(h[:, 0].shape, 'ccccc')
+        hids.append(h[:, 0])
 
         #---->PPEG
         # h = self.pos_layer(h, _H, _W) #[B, N, 512]
 
         #---->PEG1
-        cls_tokens = h[:, 0, :].unsqueeze(dim=1)
-        h = h[:, 1:, :]
-        # print(cls_tokens.shape, h.shape)
-        h = self.pos_layer1d(h) #[B, N, 512]
-        h = torch.cat((cls_tokens, h), dim=1)
+        # cls_tokens = h[:, 0, :].unsqueeze(dim=1)
+        # h = h[:, 1:, :]
+        # # print(cls_tokens.shape, h.shape)
+        # h = self.pos_layer1d(h) #[B, N, 512]
+        # h = torch.cat((cls_tokens, h), dim=1)
 
 
         #---->Translayer x2
-        h = self.layer2(h) #[B, N, 512]
+        h = self.layer2(h, mems[1]) #[B, N, 512]
+        hids.append(h[:, 0])
 
 
         # h = self.layer3(h) #[B, N, 512]
 
         # print(h.shape)
 
-        mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
+        # mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
+        mems = self._update_all_mems(mems, hids)
 
         #---->cls_token
         # h = self.norm(h)[:,0]
@@ -642,7 +760,6 @@ if __name__ == "__main__":
     mems = None
     # mems = []
     print(sum([p.numel() for p in model.parameters()]))
-<<<<<<< HEAD
     print(model)
     with torch.no_grad():
         for i in range(100):
@@ -651,14 +768,6 @@ if __name__ == "__main__":
             print(mems.shape, 'mems')
         # for m in mems:
             # print(m.shape, 'mems')
-=======
-    for i in range(100):
-        out  = model(data=data, mems=mems)
-        mems = out['mems']
-        # print(mems.shape, 'mems')
-        for m in mems:
-            print(m.shape, 'mems')
->>>>>>> 7257462 (fix: num_workers=4 set persistence_workers=True)
 
     # print(model.eval())
     # results_dict = model(data = data)

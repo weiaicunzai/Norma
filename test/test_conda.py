@@ -289,7 +289,31 @@ def get_attn_mask(attn_score):
 
 # attn_score = torch.rand(10) *  10
 # torch.save(attn_score, 'attn_score.pt')
-attn_score = torch.load('attn_score.pt')
-attn_score = attn_score.long()
-mask = get_attn_mask(attn_score)
-# print(attn_score)
+# attn_score = torch.load('attn_score.pt')
+# attn_score = attn_score.long()
+# mask = get_attn_mask(attn_score)
+# # print(attn_score)
+import sys
+import os
+sys.path.append(os.getcwd())
+
+from datasets.wsi import WSIJSON
+
+from datasets.camel_data import shuffle_wsi
+
+json_path = '/data/smb/syh/WSI_cls/cam16/json/patch_size_256_at_mag_20/normal_115.json'
+
+wsi = WSIJSON(json_path, 0)
+
+after_wsi = shuffle_wsi(wsi)
+
+# def shuffle_wsi(wsi):
+#     wsi = copy.deepcopy(wsi)
+#     for i in range(len(wsi.coords)):
+#         random.shuffle(wsi.coords[i])
+
+#     return wsi
+
+after_wsi = shuffle_wsi(wsi)
+# for i, j in zip(wsi, after_wsi):
+    # print(i, j)

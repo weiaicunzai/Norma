@@ -7,11 +7,13 @@ import functools
 import pickle
 import os
 import sys
+from collections import defaultdict
+import multiprocessing as mp
+import copy
 sys.path.append(os.getcwd())
 
 import numpy as np
 import torch.utils.data as data
-import multiprocessing as mp
 # from torch.utils.data import dataloader
 # from torch.utils.data import IterableDataset, default_collate
 import pandas as pd
@@ -1321,7 +1323,7 @@ def get_wsi(slide, json_dir):
 class WSIDataset1(data.IterableDataset):
     # def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
     # def __init__(self, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
-    def __init__(self, settings, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
+    def __init__(self, settings, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None, random_shuffle=True):
         """the num_worker of each CAMLON16 dataset is one, """
         # assert data_set in ['train', 'val']
         print(self)
@@ -1350,6 +1352,13 @@ class WSIDataset1(data.IterableDataset):
         # self.wsi_len = 79872
         self.wsi_len = num_chunks * 2 * self.seq_len
         print('wsi length: {}'.format(self.wsi_len))
+        self.random_shuffle = random_shuffle
+
+        if self.data_set == 'train':
+            print('shuffle at __init__ val')
+            self.orig_wsis = [self.shuffle_coords(x) for x in self.orig_wsis]
+        # print('shuffle once val + train')
+        # self.orig_wsis = [self.shuffle_coords(x) for x in self.orig_wsis]
 
 
     def split_wsis(self, wsis):
@@ -1369,6 +1378,15 @@ class WSIDataset1(data.IterableDataset):
 
             return subsample
 
+    def shuffle_coords(self, wsi):
+        wsi = copy.deepcopy(wsi)
+        for i in range(len(wsi.coords)):
+            random.seed(self.seed)
+            random.shuffle(wsi.coords[i])
+
+        return wsi
+
+    # def random_shuffle(wsis)
 
     def get_wsis(self, data_set, fold):
         # wsis = self.data_set()
@@ -1438,9 +1456,6 @@ class WSIDataset1(data.IterableDataset):
         # print(data)
         # return data
         return wsis
-
-
-
 
     def set_direction(self, wsis, direction):
         for wsi in wsis:
@@ -1514,43 +1529,9 @@ class WSIDataset1(data.IterableDataset):
             for data in iterable:
                 yield data
 
-    def read_img(self, data):
-
-        output = {}
-        # with self.env.begin(write=False) as txn:
-        feats = []
-        label = 0
-        for d in data:
-            patch_id = d['patch_id']
-            # img_stream = txn.get(patch_id.encode())
-            feat = self.data[patch_id]
-
-            # feat = unpack('384f', img_stream)
-            # feat = unpack('1024f', img_stream)
-            feats.append(feat)
-            label = d['label']
-                # print(label)
-
-                # img = np.frombuffer(img_stream, np.uint8)
-                # In the case of color images, the decoded images will have the channels stored in B G R order.
-                # img = cv2.imdecode(img, -1)  # most time is consum
-                # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-
-        # output['feat'] = torch.tensor(feats)
-        # output['feat'] = torch.tensor(feats)
-        output['feat'] = torch.stack(feats, dim=0)
-        output['label'] = int(label)
-        output['filename'] = data[0]['filename']
-        return output
-
-    # def read_seq(self, wsi):
-    #     outputs = []
-    #     for i in range(self.seq_len):
-    #         outputs.append(next(wsi))
-
-    #     return outputs
     def read_seq(self, wsi):
+
+        t1 = time.time()
 
         feats = []
         label = 0
@@ -1564,6 +1545,7 @@ class WSIDataset1(data.IterableDataset):
 
                 # feat = unpack('384f', img_stream)
                 feat = unpack('1024f', img_stream)
+                # feat = torch.tensor(feat)
                 feats.append(feat)
                 label = d['label']
                 filename = d['filename']
@@ -1581,9 +1563,15 @@ class WSIDataset1(data.IterableDataset):
 
         output = {}
         # output['feat'] = torch.stack(feats, dim=0)
-        output['feat'] = torch.tensor(feats)
+        t3 = time.time()
+        # output['feat'] = torch.tensor(feats)
+        # output['feat'] = torch.stack(feats, dim=0)
+        output['feat'] = feats
         output['label'] = int(label)
         output['filename'] = filename
+        t2 = time.time()
+        # print(t2 - t1, t3 - t1, (t3 - t1) / (t2 - t1))
+
         return output
 
     def shift_wsi(self, batch_wsi, num_patches):
@@ -1635,6 +1623,14 @@ class WSIDataset1(data.IterableDataset):
 
             batch_wsi = wsis[idx : idx + self.batch_size]
 
+            # if self.data_set == 'train':
+            if self.data_set != 'train':
+                print('val shuffle each epoch')
+                batch_wsi = [self.shuffle_coords(x) for x in batch_wsi]
+
+            # print('shuffle each epoch train+val')
+            # batch_wsi = [self.shuffle_coords(x) for x in batch_wsi]
+
             # assert len(batch_wsi) == self.batch_size
             if len(batch_wsi) < self.batch_size:
                 if self.drop_last:
@@ -1645,8 +1641,6 @@ class WSIDataset1(data.IterableDataset):
 
             if self.data_set == 'train':
                 batch_wsi = self.shift_wsi(batch_wsi, num_patches)
-
-
 
             # max_len_idx = idx // self.batch_size
             # mex_len = self.wsi_len
@@ -1692,7 +1686,14 @@ class WSIDataset1(data.IterableDataset):
                     count += 1
 
                     if outputs:
-                        data = default_collate(outputs)
+                        # data = default_collate(outputs)
+                        data = dict_collate_fn(outputs, tensor_keys=['feat', 'label', 'is_last'])
+                        # print(data['feat'])
+                        # data['feat'] = torch.stack(data['feat'], dim=0)
+                        # print(type(data['feat']))
+                        # for d in data['feat']:
+                        #     print(d.shape)
+                        # print(data['feat'].shape)
                         # print(data['label'])
                         yield data['feat'], data['label'], data['filename'], data['is_last']
 

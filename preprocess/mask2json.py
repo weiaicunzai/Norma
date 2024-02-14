@@ -370,6 +370,6 @@ if __name__ == '__main__':
     dest_dir = settings.json_dir
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
-    pool = mp.Pool(processes=4) # computation bound operation
+    pool = mp.Pool(processes=mp.cpu_count()) # computation bound operation
     pool.starmap(partial(write_single_json, settings=settings), get_filenames(settings))
     pool.close()

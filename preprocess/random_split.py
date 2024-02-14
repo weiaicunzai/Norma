@@ -32,6 +32,9 @@ def write_to_csv(dataset, fold_idx, slides, train_idx, test_idx):
     # csv_bool.set_index('slide_id', inplace=True)
     # csv_bool.to_csv('dataset/splits/cam16/splits_{}_bool.csv'.format(0), index=False)
     # csv_bool.to_csv('dataset/splits/{}/splits_{}_bool.csv'.format(dataset, fold_idx), index=False)
+    if not os.path.exists(os.path.join('datasets', 'splits', dataset)):
+        os.makedirs(os.path.join('datasets', 'splits', dataset))
+
     csv_bool.to_csv(
             os.path.join(
                 'datasets',
@@ -84,6 +87,8 @@ if __name__ == '__main__':
         from conf.brac import settings
     elif args.dataset == 'cam16':
         from conf.camlon16 import settings
+    elif args.dataset == 'lung':
+        from conf.lung import settings
     else:
         raise ValueError('wrong dataset')
 

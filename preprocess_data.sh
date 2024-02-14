@@ -4,8 +4,9 @@ export CUDA_VISIBLE_DEVICES=2
 # RESULTS_DIRECTORY=/data/smb/syh/WSI_cls/TCGA_BRCA/mask/
 
 ROOT=/data/smb/syh/WSI_cls/
-DATASET=cam16
+# DATASET=cam16
 # DATASET=brac
+DATASET=lung
 
 
 # DATA_DIRECTORY=/data/smb/syh/WSI_cls/camelyon16/img
@@ -25,8 +26,8 @@ CURRENT_DIRECTORY=`pwd`
 
 #seg tissue
 cd $CLAM_DIRECTORY
-# python -u create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY  --preset tcga.csv --seg
-# python -u create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY  --preset tcga.csv --seg
+python -u create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY  --preset tcga.csv --seg
+# python -u create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY  --preset bwh_biopsy.csv --seg
 # python create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY --patch_size 512 --step_size 512 --preset bwh_biopsy.csv --seg
 # python -u create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY  --seg
 cd $CURRENT_DIRECTORY
@@ -39,5 +40,5 @@ cd $CURRENT_DIRECTORY
 #
 ## extract patch into feat
 # python -u preprocess/create_feat_lmdb.py --dataset $DATASET
-python -u preprocess/create_feat.py --dataset $DATASET
+# python -u preprocess/create_feat.py --dataset $DATASET
 #  --ckpt $CKPT_PATH

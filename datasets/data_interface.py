@@ -112,7 +112,11 @@ class DataInterface(pl.LightningDataModule):
             if arg in inkeys:
                 args1[arg] = self.kwargs[arg]
         args1.update(other_args)
+        # print(self.data_module, args1)
+        # import sys; sys.exit()
+        #return self.data_module(**args1)
         return self.data_module(**args1)
+
 
 
 # class DataInterface_wsi(pl.LightningDataModule):
@@ -392,7 +396,9 @@ class WSIDataModule(pl.LightningDataModule):
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=True)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=self.train_num_workers, shuffle=False)
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=False)
-        return DataLoader(self.train_dataset, batch_size=None, num_workers=4, shuffle=False, persistent_workers=True)
+        dataloader = DataLoader(self.train_dataset, batch_size=None, num_workers=4, shuffle=False, persistent_workers=True)
+        print('num_workers', dataloader.num_workers, 'persistent_workers', dataloader.persistent_workers)
+        return dataloader
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=True)
 
     def val_dataloader(self):

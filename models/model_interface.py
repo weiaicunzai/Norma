@@ -161,19 +161,14 @@ class  ModelInterface(pl.LightningModule):
             self.mems = None
             # self.mems = []
 
-        if self.mems is not None:
-            print('mems', self.mems)
+        if isinstance(self.mems, list):
             for mem in self.mems:
-                print(mem.shape)
+                 print(mem.shape)
+        elif isinstance(self.mems, torch.Tensor):
+            print(self.mems.shape)
         else:
-            print('mems', self.mems)
+            print(self.mems)
 
-        # if len(self.mems) > 0 :
-        #     print('mems', len(self.mems))
-        #     for mem in self.mems:
-        #         print(mem.shape)
-        # else:
-        #     print('mems', self.mems)
 
         logits = results_dict['logits']
         Y_prob = results_dict['Y_prob']
@@ -348,19 +343,14 @@ class  ModelInterface(pl.LightningModule):
                 self.mems = None
                 # self.mems = []
 
-            if self.mems is not None:
-                # print('mems', self.mems.shape)
+            if isinstance(self.mems, list):
                 for mem in self.mems:
-                    print(mem.shape, 'mems')
+                     print(mem.shape)
+            elif isinstance(self.mems, torch.Tensor):
+                print(self.mems.shape)
             else:
-                print('mems', self.mems)
+                print(self.mems)
 
-            # if len(self.mems) > 0 :
-            #     print('mems', len(self.mems))
-            #     for mem in self.mems:
-            #         print(mem.shape)
-            # else:
-            #     print('mems', self.mems)
 
         logits = results_dict['logits']
         Y_prob = results_dict['Y_prob']
@@ -375,9 +365,6 @@ class  ModelInterface(pl.LightningModule):
         for y_hat, y in zip(Y_hat, Y):
             self.data[y]["count"] += 1
             self.data[y]["correct"] += (y_hat.item() == y)
-
-
-
 
         self.validation_step_outputs.append(
             {'logits' : logits, 'Y_prob' : Y_prob, 'Y_hat' : Y_hat, 'label' : label}

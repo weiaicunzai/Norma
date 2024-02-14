@@ -53,8 +53,15 @@ if '__main__' == __name__:
     args = get_args_parser()
     if args.dataset == 'brac':
         from conf.brac import settings
+    elif args.dataset == 'lung':
+        from conf.lung import settings
+    else:
+        raise ValueError('wrong dataset')
+
+    if not os.path.exists(settings.wsi_dir):
+        os.makedirs(settings.wsi_dir)
 
     downloader = partial(write_single_file, save_dir=settings.wsi_dir)
-    pool = multiprocessing.Pool(processes=16)
+    pool = multiprocessing.Pool(processes=multiprocessing.cpu_count() * 4)
     pool.map(downloader, get_filename(settings))
-    pool.join()
+    # pool.join()

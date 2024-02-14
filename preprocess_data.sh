@@ -26,14 +26,14 @@ CURRENT_DIRECTORY=`pwd`
 
 #seg tissue
 cd $CLAM_DIRECTORY
-python -u create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY  --preset tcga.csv --seg
+# python -u create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY  --preset tcga.csv --seg
 # python -u create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY  --preset bwh_biopsy.csv --seg
 # python create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY --patch_size 512 --step_size 512 --preset bwh_biopsy.csv --seg
 # python -u create_patches_fp.py --source $DATA_DIRECTORY --save_dir $RESULTS_DIRECTORY  --seg
 cd $CURRENT_DIRECTORY
 
 # convert mask to json
-# python -u preprocess/mask2json.py --dataset $DATASET
+python -u preprocess/mask2json.py --dataset $DATASET
 #
 ## extract patch into lmdb
 # python -u preprocess/create_patch_lmdb.py --dataset $DATASET

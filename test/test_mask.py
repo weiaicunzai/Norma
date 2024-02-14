@@ -26,6 +26,8 @@ if __name__  == '__main__':
         from conf.brac import settings
     elif args.dataset == 'cam16':
         from conf.camlon16 import settings
+    elif args.dataset == 'lung':
+        from conf.lung import settings
     else:
         raise ValueError('wrong value error')
 

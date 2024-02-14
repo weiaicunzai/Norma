@@ -57,6 +57,11 @@ def worker(json_path):
 
     return keys
 
+def get_wsi(path):
+    wsi = openslide.open_slide(path)
+    basename = os.path.basename(path)
+    return {basename : wsi}
+
 class PatchLMDB(Dataset):
     def __init__(self, settings, trans) -> None:
         print('loading keys .....')
@@ -71,14 +76,33 @@ class PatchLMDB(Dataset):
         # self.patch_env = lmdb.open(settings.patch_dir, readonly=True, lock=False)
         # self.feat_env = lmdb.open(settings.feat_dir, readonly=True, lock=False)
 
+    # def load_wsis(self, settings):
+    #     wsis = {}
+
+    #     csv_path = settings.file_list_csv
+    #     file_path = []
+    #     with open(csv_path, 'r') as csv_file:
+    #         for row in csv.DictReader(csv_file):
+    #             slide_id = row['slide_id']
+    #             path = os.path.join(settings.wsi_dir, slide_id)
+    #             file_path.append(path)
+    #             # wsis[slide_id] = openslide.open_slide(path)
+    #     pool = Pool(processes=mp.cpu_count())
+    #     keys = pool.map(get_wsi, file_path)
+    #     for key in keys:
+    #         wsis.update(key)
+
+    #     return wsis
     def load_wsis(self, settings):
         wsis = {}
 
         csv_path = settings.file_list_csv
         with open(csv_path, 'r') as csv_file:
             for row in csv.DictReader(csv_file):
+                count += 1
                 slide_id = row['slide_id']
                 path = os.path.join(settings.wsi_dir, slide_id)
+                print(path)
                 wsis[slide_id] = openslide.open_slide(path)
 
         return wsis
@@ -179,11 +203,11 @@ def get_args_parser():
 
     return parser.parse_args()
 
-def writer_process(settings, q):
+def writer_process(settings, q, num_patches):
 
-    env = lmdb.open(settings.patch_dir, readonly=True, lock=False)
-    with env.begin() as txn:
-        num_patches = txn.stat()['entries']
+    # env = lmdb.open(settings.patch_dir, readonly=True, lock=False)
+    # with env.begin() as txn:
+        # num_patches = txn.stat()['entries']
 
     count = 0
     t1 = time.time()
@@ -220,10 +244,13 @@ if __name__ == '__main__':
         from conf.brac import settings
     elif args.dataset == 'cam16':
         from conf.camlon16 import settings
+    elif args.dataset == 'lung':
+        from conf.lung import settings
     else:
         raise ValueError('wrong dataset')
 
     feat_dir = settings.feat_dir
+    print(feat_dir)
     if not os.path.exists(feat_dir):
         os.makedirs(feat_dir)
 
@@ -231,8 +258,10 @@ if __name__ == '__main__':
     print(trans)
 
     dataset = PatchLMDB(settings, trans=trans)
+    num_patches = len(dataset.keys)
     # dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True, prefetch_factor=8)
-    dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True)
+    # dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True)
+    dataloader = DataLoader(dataset, num_workers=8, batch_size=256 * 4, pin_memory=True)
 
     # model = get_vit256(args.ckpt).cuda()
     model = resnet50_baseline(pretrained=True).cuda()
@@ -245,11 +274,12 @@ if __name__ == '__main__':
     # since lmdb only allows one process to write at the same time
     # we use another writer process to perfom writing operation
     # when dataloader is reading data.
-    writer_proc = Process(target=writer_process, args=(settings, q))
+    writer_proc = Process(target=writer_process, args=(settings, q, num_patches))
     writer_proc.start()
 
     for data in dataloader:
         img = data['img'].cuda(non_blocking=True)
+        print(img.shape)
 
         with torch.no_grad():
             out = model(img)

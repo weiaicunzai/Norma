@@ -16,6 +16,8 @@ class Settings:
         self.feat_dir = os.path.join(self.root, 'feat', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
         self.split_dir = 'datasets/splits/lung'
         self.num_classes = 2
-        self.max_len = 67063
+        self.max_len = 46543
+        self.ignore_label = -1
+
 
 settings = Settings()

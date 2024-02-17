@@ -120,5 +120,6 @@ class Settings:
         self.split_dir = 'datasets/splits/cam16'
         self.num_classes = 2
         self.max_len = 43950
+        self.ignore_label = 0
 
 settings = Settings()

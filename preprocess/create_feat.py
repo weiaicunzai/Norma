@@ -63,9 +63,12 @@ def get_wsi(path):
     return {basename : wsi}
 
 class PatchLMDB(Dataset):
-    def __init__(self, settings, trans) -> None:
+    def __init__(self, settings, trans, cont) -> None:
         print('loading keys .....')
         self.keys = self.load_keys(settings)
+        # if cont:
+            # self.keys = self.filter_keys(self.keys, settings.feat_dir)
+
         self.wsis = self.load_wsis(settings)
         # num_keys = self.env.stat()['entries']
         # assert num_keys == len(self.keys)
@@ -91,19 +94,57 @@ class PatchLMDB(Dataset):
     #     keys = pool.map(get_wsi, file_path)
     #     for key in keys:
     #         wsis.update(key)
+    def filter_keys(self, keys, feat_path):
+        env = lmdb.open(feat_path, readonly=True, lock=False)
+        print(feat_path)
+        with env.begin(write=False) as txn:
+            cursor = txn.cursor()
+            for key in keys:
+
+                base_name, coord = key
+                (x, y), level, (patch_size_x, patch_size_y) = coord
+
+                assert isinstance(x, int)
+                assert isinstance(y, int)
+                assert isinstance(level, int)
+                assert isinstance(patch_size_x, int)
+                assert isinstance(patch_size_y, int)
+
+                patch_id = '{basename}_{x}_{y}_{level}_{patch_size_x}_{patch_size_y}'.format(
+                    basename=base_name,
+                    x=x,
+                    y=y,
+                    level=level,
+                    patch_size_x=patch_size_x,
+                    patch_size_y=patch_size_y)
+
+                print(cursor.set_key(patch_id.encode()))
+                # key = next(cursor.iternext(values=False))
+                # key = next(cursor.iternext())
+                print(key, 'ccc')
+                key = cursor.first()
+                print(key)
+                # key = key[0]
+                # print(cursor.set_key(key[0].encode()))
+                import sys; sys.exit()
+
+
 
     #     return wsis
     def load_wsis(self, settings):
         wsis = {}
 
         csv_path = settings.file_list_csv
+        # count = 0
         with open(csv_path, 'r') as csv_file:
             for row in csv.DictReader(csv_file):
-                count += 1
+                # count += 1
                 slide_id = row['slide_id']
                 path = os.path.join(settings.wsi_dir, slide_id)
                 print(path)
                 wsis[slide_id] = openslide.open_slide(path)
+                # if count > 10:
+                    # break
 
         return wsis
 
@@ -118,6 +159,7 @@ class PatchLMDB(Dataset):
                 json_path = os.path.join(json_dir, json_name)
                 json_names.append(json_path)
 
+        # json_names = json_names[:10]
         t1 = time.time()
         pool = Pool(processes=mp.cpu_count())
         keys = pool.map(worker, json_names)
@@ -200,6 +242,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--dataset', required=True, default=None)
     # parser.add_argument('--ckpt', required=True, default=None)
+    parser.add_argument('--cont', action='store_true', help='enable')
 
     return parser.parse_args()
 
@@ -257,10 +300,11 @@ if __name__ == '__main__':
     trans = eval_transforms(settings.patch_size, pretrained=True)
     print(trans)
 
-    dataset = PatchLMDB(settings, trans=trans)
+    dataset = PatchLMDB(settings, trans=trans, cont=args.cont)
     num_patches = len(dataset.keys)
     # dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True, prefetch_factor=8)
     # dataloader = DataLoader(dataset, num_workers=4, batch_size=256 * 4, pin_memory=True)
+    # dataloader = DataLoader(dataset, num_workers=8, batch_size=256 * 4, pin_memory=True, prefetch_factor=8)
     dataloader = DataLoader(dataset, num_workers=8, batch_size=256 * 4, pin_memory=True)
 
     # model = get_vit256(args.ckpt).cuda()

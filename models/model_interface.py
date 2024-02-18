@@ -126,6 +126,46 @@ class  ModelInterface(pl.LightningModule):
         self.mems = None
         # self.mems = []
 
+        self.ignore_label = settings.ignore_label
+        # print(self.postive_classes)
+        # import sys; sys.exit()
+        # self.queue = {}
+
+        # self.pos_queue = []
+        # for _ in self.postive_classes.keys():
+        #     self.pos_queue.append(None)
+
+        # self.neg_queue =
+        # self.tmp_queue = None
+        # self.all_queue = None
+        self.k = 5
+        # self.class1 = []
+        # self.class0 = []
+        self.queues = {}
+        for cls_id in range(settings.num_classes):
+            self.queues[cls_id] = None
+
+        self.bg_cls = settings.num_classes
+        self.queues[self.bg_cls] = None
+
+
+    def reservoir(num_seen_examples: int, buffer_size: int) -> int:
+        """
+        Reservoir sampling algorithm.
+        :param num_seen_examples: the number of seen examples
+        :param buffer_size: the maximum buffer size
+        :return: the target index if the current image is sampled, else -1
+        """
+        if num_seen_examples < buffer_size:
+            return num_seen_examples
+
+        rand = np.random.randint(0, num_seen_examples + 1)
+        if rand < buffer_size:
+            return rand
+        else:
+            return -1
+
+
 
     def update_prob_dict(self, prob_dict, prob, slide_id):
         # if prob_dict[slide_id] is None:
@@ -148,6 +188,66 @@ class  ModelInterface(pl.LightningModule):
         items.pop("v_num", None)
         return items
 
+    # def add_data(self, )
+    # def sample_feat(self, feat):
+
+    #     index = self.reservoir(self.mems[0].shape, self.k)
+    #     if index == -1:
+    #         return None
+    #     else:
+    #         feat
+            # return feat[:, index, :].unsqueeze(dim=1)
+
+    # def heihei_step(self, batch, batch_idx):
+
+    def self_attn(self, feats, value):
+
+
+    def get_bg_label(self, feats, labels):
+        pass
+
+    def con_loss(self, feats, labels):
+
+        ignore_mask = labels == self.ignore_label
+        feats = feats[~ignore_mask]
+        labels = labels[~ignore_mask]
+
+        # current batch contains no avilable samples
+        if labels.numel() == 0:
+            return 0
+
+
+
+        # compute loss
+        # if is background classes
+        if self.mems[0].shape[1] < self.model.mem_length:
+
+            for key, value in self.queues.items():
+                if key == self.ignore_label:
+                    continue
+                if key == self.bg_cls:
+                    continue
+
+                #
+                # if value is not None:
+                mask = labels == key
+
+                bg_feats = feats[mask] #[B, n, dim]
+                B, n, dim = bg_feats.shape
+                if value is not None:
+                    # bg_feats.shape
+                    # value # [k', dim]
+                    bg_feats = bg_feats.view(B * n, dim)
+                    # bg_feats
+                    self.self_attn(bg_feats, value, value)
+
+
+
+            # if self.queues[self.bg_cls] is None:
+
+        # en queue
+
+
     def training_step(self, batch, batch_idx):
         #---->inference
         # data, label, slide_id = batch
@@ -157,13 +257,20 @@ class  ModelInterface(pl.LightningModule):
 
         results_dict = self.model(data=data, label=label, mems=self.mems)
         self.mems = results_dict['mems']
+        # seen_example = self.mems[0].shape[1]
+        # sample = self.sample_feat(feat)
+        # if sample = None
+
+
+
+
         if is_last.sum() > 0:
             self.mems = None
             # self.mems = []
 
         if isinstance(self.mems, list):
             for mem in self.mems:
-                 print(mem.shape)
+                print(mem.shape)
         elif isinstance(self.mems, torch.Tensor):
             print(self.mems.shape)
         else:
@@ -173,7 +280,15 @@ class  ModelInterface(pl.LightningModule):
         logits = results_dict['logits']
         Y_prob = results_dict['Y_prob']
         Y_hat = results_dict['Y_hat']
+        feat = results_dict['feat']
         # mems = results_dict['mems']
+        loss = self.con_loss(feat, label)
+
+        import sys;  sys.exit()
+
+
+
+
 
         print('train_slide', slide_id, 'is_last', is_last, 'Y_prob', Y_prob, 'label', label,)
         #---->loss
@@ -636,6 +751,12 @@ class  ModelInterface1(pl.LightningModule):
         # self.valid_results_old = {}
         # self.valid_results_new = {}
         self.mems = None
+
+        # self.target_class = {
+        #         'normal':0,
+        #         'cls':1,
+        #     }
+        # self.queue = {'0': 1}
 
 
     def update_prob_dict(self, prob_dict, prob, slide_id):

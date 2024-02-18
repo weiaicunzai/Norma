@@ -40,5 +40,5 @@ cd $CURRENT_DIRECTORY
 #
 ## extract patch into feat
 # python -u preprocess/create_feat_lmdb.py --dataset $DATASET
-python -u preprocess/create_feat.py --dataset $DATASET
+python -u preprocess/create_feat1.py --dataset $DATASET
 #  --ckpt $CKPT_PATH

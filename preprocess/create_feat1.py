@@ -68,6 +68,7 @@ class WSI(Dataset):
 
         print('read {}'.format(wsi_path))
         self.wsi = openslide.OpenSlide(wsi_path)
+        print('done loading {}'.format(wsi_path))
 
     def __len__(self):
         return len(self.coords)
@@ -109,13 +110,23 @@ def get_file_path(settings):
             path = wsi_path, json_path
             yield path
 
-def create_dataset(settings):
+def create_dataloader(settings):
     datasets = []
+    bs = 1024
     trans = eval_transforms(settings.patch_size, pretrained=True)
     for path in get_file_path(settings):
         datasets.append(WSI(path, trans=trans))
 
-    return ConcatDataset(datasets)
+        # some datasets may contain over 1k or 10k wsis
+        # in case we do not have enough RAM
+        # we only process 32 wsis at the same time
+        if len(datasets) == 32:
+            yield DataLoader(ConcatDataset(datasets), num_workers=16, batch_size=bs)
+            datasets = []
+
+    # return ConcatDataset(datasets)
+    if datasets:
+        yield DataLoader(ConcatDataset(datasets), num_workers=16, batch_size=bs)
 
 def write_lmdb(patch_ids, feats, settings):
     db_size = 1 << 42
@@ -130,7 +141,12 @@ def write_lmdb(patch_ids, feats, settings):
             # than torch.load from byte string
 
             feat = struct.pack('1024f', *feat)
-            txn.put(patch_id.encode(), feat)
+            patch_id = patch_id.encode()
+            try:
+                txn.put(patch_id, feat)
+            except Exception as e:
+                print(e)
+                raise ValueError('wrong ????')
 
 
 if __name__ == '__main__':
@@ -149,10 +165,10 @@ if __name__ == '__main__':
     if not os.path.exists(feat_dir):
         os.makedirs(feat_dir)
 
-    dataset = create_dataset(settings)
-    print(dataset)
-    bs = 1024
-    dataloader = DataLoader(dataset, num_workers=16, batch_size=bs)
+    # dataset = create_dataset(settings)
+    # print(dataset)
+    # bs = 1024
+    # dataloader = DataLoader(dataset, num_workers=16, batch_size=bs)
 
     model = resnet50_baseline(pretrained=True).cuda()
     if torch.cuda.device_count() > 1:
@@ -160,12 +176,13 @@ if __name__ == '__main__':
     model = model.eval()
 
     count = 0
-    t1 = time.time()
-    for idx, batch in enumerate(dataloader):
+    for dataloader in create_dataloader(settings):
+        t1 = time.time()
+        for idx, batch in enumerate(dataloader):
 
-        img = batch['img'].cuda(non_blocking=True)
-        with torch.no_grad():
-           out = model(img)
-        write_lmdb(batch['patch_id'], out.cpu().tolist(), settings)
+            img = batch['img'].cuda(non_blocking=True)
+            with torch.no_grad():
+               out = model(img)
+            write_lmdb(batch['patch_id'], out.cpu().tolist(), settings)
 
-        print(idx, 'avg batch time', (time.time() - t1) / (idx + 1), 'avg img time', (time.time() - t1) / bs / (idx + 1))
+            print(idx, 'avg batch time', (time.time() - t1) / (idx + 1), 'avg img time', (time.time() - t1) / 1024 / (idx + 1))

@@ -491,6 +491,7 @@ class TransMIL(nn.Module):
         self._fc2 = nn.Linear(net_dim, self.n_classes)
 
         self.proj = nn.Linear(net_dim, 128)
+        self.isbg = nn.Linear(net_dim, 2)
 
         # self.mem_length = 39
         self.mem_length = math.ceil(max_len / 1024)
@@ -596,11 +597,12 @@ class TransMIL(nn.Module):
         h = self.norm(h)[:,0]
         #---->predict
         logits = self._fc2(h) #[B, n_classes]
+        logits_bg = self.isbg(h)
         # if self.training:
         features = self.proj(h)
         Y_hat = torch.argmax(logits, dim=1)
         Y_prob = F.softmax(logits, dim = 1)
-        results_dict = {'logits': logits, 'Y_prob': Y_prob, 'Y_hat': Y_hat, 'mems': mems, 'feat': features}
+        results_dict = {'logits': logits, 'Y_prob': Y_prob, 'Y_hat': Y_hat, 'mems': mems, 'feat': features, 'logits_bg': logits_bg}
         return results_dict
 
 

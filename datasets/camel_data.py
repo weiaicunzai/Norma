@@ -1436,6 +1436,11 @@ class WSIDataset1(data.IterableDataset):
             wsi = get_wsi(slide_id, self.settings.json_dir)
             wsis.append(wsi)
 
+            # if len(wsis) == 15:
+                # break
+
+
+
         print('done load json {}'.format(time.time() - t1))
         # for slide in slide_ids:
         #     # print(i, '333')
@@ -1822,6 +1827,13 @@ class WSIDataset(data.IterableDataset):
             wsi = get_wsi(slide_id, self.settings.json_dir)
             wsis.append(wsi)
 
+            # if data_set == 'train':
+            #     if len(wsis) == 10:
+            #         break
+
+            # else:
+            #     if len(wsis) == 3:
+            #         break
         print('done load json {}'.format(time.time() - t1))
         # for slide in slide_ids:
         #     # print(i, '333')

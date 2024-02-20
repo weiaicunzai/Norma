@@ -166,7 +166,7 @@ class  ModelInterface(pl.LightningModule):
 
 
 
-    def reservoir(num_seen_examples: int, buffer_size: int) -> int:
+    def reservoir(self, num_seen_examples: int, buffer_size: int) -> int:
         """
         Reservoir sampling algorithm.
         :param num_seen_examples: the number of seen examples
@@ -210,11 +210,6 @@ class  ModelInterface(pl.LightningModule):
     def cal_bg_loss(self, logits, bg_feats, labels):
         loss = 0
 
-        # predict_labels = torch.zeros(labels.shape, dtype=labels.dtype, device=labels.device)
-
-        # for key, value in self.queues.items():
-        # for cls_id in range(self.num_classes)
-
         real_bg_feats = []
         for cls_id, cls_feat in enumerate(self.queues):
             # if key == self.ignore_label:
@@ -225,6 +220,7 @@ class  ModelInterface(pl.LightningModule):
 
             # if memory queue is empty
             if cls_feat is None:
+                print('here')
                 continue
 
             # mask = labels == key
@@ -237,13 +233,15 @@ class  ModelInterface(pl.LightningModule):
 
             # cls_feats = bg_feats[mask]
             sub_bg_feats = bg_feats[mask]
-            B, N, dim = cls_feat.shape
-            cls_feat = cls_feat.view(B * N, dim)
+            # N, dim = cls_feat.shape
+            # cls_feat = cls_feat.view(B * N, dim)
             sub_bg_logits = logits[mask]
 
             # compute similarity between bg and cls
             sim = torch.einsum('id, jd->ij', sub_bg_feats, cls_feat)
-            sim_prob = torch.sigmoid(sim, dim=1).mean(dim=1)
+            print('ffff', sim.shape, sub_bg_feats.shape, cls_feat.shape)
+            sim_prob = torch.softmax(sim, dim=1).mean(dim=1)
+            print('sim_prob', sim_prob.shape, sim_prob)
             # predict_labels[mask]
             soft_prob = torch.stack([sim_prob, 1 - sim_prob], dim=1)
 
@@ -262,6 +260,7 @@ class  ModelInterface(pl.LightningModule):
         # return loss, bg_labels
         # import sys; sys.exit()
         # return loss, torch.cat(real_bg_feats)
+        # print(loss, real_bg_feats)
         return loss, real_bg_feats
 
 
@@ -276,8 +275,9 @@ class  ModelInterface(pl.LightningModule):
             return
 
         # if queue is not full
-        if self.bg_enqueue.shape[0] <= self.queue_len:
-            self.bg_queue = torch.cat([bg_feats, self.bg_queue], dim=0)
+        if self.bg_queue.shape[0] <= self.queue_len:
+            # self.bg_queue = torch.cat([bg_feats, self.bg_queue], dim=0)
+            self.bg_queue = torch.cat([self.bg_queue, bg_feats], dim=0)
             self.bg_queue = self.bg_queue[-self.queue_len:].detach().clone()
             return
 
@@ -313,7 +313,8 @@ class  ModelInterface(pl.LightningModule):
             # directly push all bg feats into queue
             # perform a FIFO routine
 
-            self.bg_queue = torch.cat([bg_feats, self.bg_queue], dim=0)
+            # self.bg_queue = torch.cat([bg_feats, self.bg_queue], dim=0)
+            self.bg_queue = torch.cat([self.bg_queue, bg_feats], dim=0)
             self.bg_queue = self.bg_queue[-self.queue_len:].detach().clone()
 
 
@@ -344,17 +345,26 @@ class  ModelInterface(pl.LightningModule):
 
     def add_data(self, feat, cls_id):
 
+        assert cls_id != self.ignore_label
+
         index = self.reservoir(self.seen_examples[cls_id], self.queue_len)
         if index >= 0:
             # queue is full
             if index != self.seen_examples[cls_id]:
-                self.queues[cls_id][index] = feat
+                self.queues[cls_id][index] = feat.detach().clone()
 
             # queue is not full
             else:
-                self.queues[cls_id] = torch.cat([
-                        self.queues[cls_id], feat
-                    ], dim=0)
+                if self.queues[cls_id] is not None:
+                    self.queues[cls_id] = torch.cat([
+                            self.queues[cls_id], feat.unsqueeze(dim=0).detach().clone()
+                        ], dim=0)
+                else:
+                    # print(feat.shape)
+                    self.queues[cls_id] = feat.unsqueeze(dim=0).detach().clone()
+                    # import sys; sys.exit()
+                    # self.queues[cls_id] = feat
+                    # print(self.queues[cls_id].shape)
 
         self.seen_examples[cls_id] += 1
 
@@ -397,39 +407,60 @@ class  ModelInterface(pl.LightningModule):
 
         # return 0
         total_loss = 0
-        infonce_loss = 0
+        infonce_loss_all = 0
+        bg_loss_all = 0
         # first compute bg class ce loss
         # if is background class
-        print('heihei', self.bg_queue)
+        # print('bg_queue', self.bg_queue, self.mems[0].shape[1])
+        # if self.bg_queue is not None:
+            # print('bg_queue.shape', self.bg_queue.shape)
+        # print('all_queue', self.queues)
+        print('cls_queues:')
+        for i in self.queues:
+            if i is not None:
+                print(i.shape)
+        print('..........')
         if self.mems[0].shape[1] < self.model.mem_length:
             bg_loss, real_bg_feats = self.cal_bg_loss(logits, feats, labels)
 
+            bg_loss_all += bg_loss
+
 
             if real_bg_feats is not None:
-                real_bg_labels = torch.zeros(real_bg_labels.shape[0], dtype=labels.dtype, device=labels.device)
+                real_bg_labels = torch.zeros(real_bg_feats.shape[0], dtype=labels.dtype, device=labels.device)
                 cls_feats, cls_label = self.get_queue_feats_and_labels()
                 if cls_feats is not None:
                     all_feats = torch.cat([cls_feats, real_bg_feats], dim=0)
                     all_labels = torch.cat([cls_label, real_bg_labels], dim=0)
 
                     all_feats = all_feats.unsqueeze(dim=1)
-                    infonce_loss += self.infonce(all_feats, all_labels)
+                    infonce_loss_all += self.infonce(all_feats, all_labels)
 
                 self.bg_enqueue(real_bg_feats)
-
         else:
             cls_feats, cls_label = self.get_queue_feats_and_labels()
-            bg_feats = self.bg_queue
-            bg_labels = torch.zeros((bg_feats.shape[0]), device=bg_feats.device, dtype=cls_label.detype)
-            all_feats = torch.cat([cls_feats, feats, bg_feats], dim=0)
-            all_labels = torch.cat([cls_label, labels, bg_labels], dim=0)
-            all_feats = all_feats.unsqueeze(dim=1)
-            infonce_loss += self.infonce(all_feats, all_labels)
+
+            if cls_feats is not None:
+                bg_feats = self.bg_queue
+                if bg_feats is not None:
+                    bg_labels = torch.zeros((bg_feats.shape[0]), device=bg_feats.device, dtype=cls_label.detype)
+                    all_feats = torch.cat([cls_feats, feats, bg_feats], dim=0)
+                    all_labels = torch.cat([cls_label, labels, bg_labels], dim=0)
+
+                else:
+                    all_feats = torch.cat([cls_feats, feats], dim=0)
+                    all_labels = torch.cat([cls_label, labels], dim=0)
+
+                all_feats = all_feats.unsqueeze(dim=1)
+                infonce_loss_all += self.infonce(all_feats, all_labels)
 
             self.cls_feats_enqueue(feats, labels)
 #
 #
-        total_loss = infonce_loss + bg_loss
+        print('infonce_loss', infonce_loss_all)
+        total_loss = infonce_loss_all + bg_loss_all
+
+        print('con loss', total_loss)
 
         return total_loss
 
@@ -446,6 +477,9 @@ class  ModelInterface(pl.LightningModule):
         # sample = self.sample_feat(feat)
         # if sample = None
 
+        logits_bg = results_dict['logits_bg']
+        feat = results_dict['feat']
+        con_loss = self.con_loss(logits_bg, feat, label)
 
 
 
@@ -466,10 +500,6 @@ class  ModelInterface(pl.LightningModule):
         Y_prob = results_dict['Y_prob']
         Y_hat = results_dict['Y_hat']
 
-        feat = results_dict['feat']
-        logits_bg = results_dict['logits_bg']
-        # mems = results_dict['mems']
-        con_loss = self.con_loss(logits_bg, feat, label)
 
 
 

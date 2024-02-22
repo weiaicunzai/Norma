@@ -118,6 +118,7 @@ class Settings:
         self.split_dir = 'datasets/splits/brac'
         self.num_classes = 2
         self.max_len = 67063
+        self.ignore_label = -1
 
 
 

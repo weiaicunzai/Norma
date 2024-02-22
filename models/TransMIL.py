@@ -395,6 +395,15 @@ class PEG1D(nn.Module):
             padding=(3 - 1) // 2,
             groups=dim
         )
+
+        # self.proj2 = nn.Conv1d(
+        #     in_channels=dim,
+        #     out_channels=dim,
+        #     kernel_size=3,
+        #     stride=1,
+        #     padding=(3 - 1) // 2,
+        #     groups=dim
+        # )
         self.chunk_length = 32
 
     def pos_emb(self, x):
@@ -421,7 +430,7 @@ class PEG1D(nn.Module):
 
         # shift x
         shifted_x = torch.roll(x, shifts=self.chunk_length // 2, dims=1)
-        pos_emb2 = self.pos_emb(x)
+        pos_emb2 = self.pos_emb(shifted_x)
         pos_emb2 = torch.roll(pos_emb2, shifts=-self.chunk_length // 2, dims=1)
 
         x = x + pos_emb1 + pos_emb2
@@ -497,7 +506,30 @@ class TransMIL(nn.Module):
         self.mem_length = math.ceil(max_len / 1024)
         print('net_dim', net_dim, 'mem_length', self.mem_length)
 
+        self.queues = [None for _ in range(self.n_classes)]
 
+    # def get_queue_feats_and_labels(self):
+    #     cls_feats = []
+    #     cls_labels = []
+    #     for cls_id, cls_feat in enumerate(self.queues):
+    #         if cls_feat is None:
+    #             continue
+
+    #         cls_feats.append(cls_feat)
+    #         labels = torch.zeros(cls_feat.shape[0], dtype=torch.long, device=cls_feat.device) + cls_id
+    #         print('labels', labels, cls_id)
+    #         cls_labels.append(labels)
+
+    #     print('cls_feats inside method:......')
+    #     print(len(cls_feats))
+    #     # if len(cls_feats) > 0:
+    #     #     print(cls_feats[0].shape, bool(cls_feats))
+    #     if len(cls_feats) > 0:
+    #         cls_feats = torch.cat(cls_feats, dim=0)
+    #         cls_labels = torch.cat(cls_labels, dim=0)
+    #         return cls_feats, cls_labels
+    #     else:
+    #         return None, None
 
     def _update_mems(self, mems, h):
 

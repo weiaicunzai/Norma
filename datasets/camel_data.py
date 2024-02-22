@@ -1743,6 +1743,16 @@ class WSIDataset(data.IterableDataset):
         #print('done')
         self.cache = {}
 
+        self.if_shuffle = True
+
+    def shuffle_coords(self, wsi):
+        wsi = copy.deepcopy(wsi)
+        for i in range(len(wsi.coords)):
+            random.seed(self.seed)
+            random.shuffle(wsi.coords[i])
+
+        return wsi
+
     def load_data(self):
         # with self.env.begin(write=False):
         #     cursor = txn.cursor()
@@ -2077,6 +2087,8 @@ class WSIDataset(data.IterableDataset):
 
             batch_wsi = wsis[idx : idx + self.batch_size]
 
+            batch_wsi = [self.shuffle_coords(x) for x in batch_wsi]
+
             # assert len(batch_wsi) == self.batch_size
             if len(batch_wsi) < self.batch_size:
                 if self.drop_last:
@@ -2084,6 +2096,8 @@ class WSIDataset(data.IterableDataset):
 
             num_patches = [w.num_patches for w in batch_wsi]
             batch_wsi = [self.cycle(x) for x in batch_wsi]
+
+
 
             if self.data_set == 'train':
                 batch_wsi = self.shift_wsi(batch_wsi, num_patches)

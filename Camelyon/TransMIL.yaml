@@ -41,8 +41,8 @@ Model:
 
 Optimizer:
     opt: lookahead_radam
-    # lr: 0.0002
-    lr: 0.0004
+    lr: 0.0002
+    # lr: 0.0004
     # lr: 0.0008
     # lr: 0.0016
     opt_eps: null

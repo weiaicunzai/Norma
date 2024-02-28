@@ -399,6 +399,8 @@ class WSIDataModule(pl.LightningDataModule):
         # dataloader = DataLoader(self.train_dataset, batch_size=None, num_workers=0, shuffle=False, persistent_workers=True)
         dataloader = DataLoader(self.train_dataset, batch_size=None, num_workers=0, shuffle=False)
         print('num_workers', dataloader.num_workers, 'persistent_workers', dataloader.persistent_workers)
+        if dataloader.num_workers > 0:
+            assert dataloader.persistent_workers
         return dataloader
         # return DataLoader(self.train_dataset, batch_size=self.train_batch_size, num_workers=0, shuffle=True)
 

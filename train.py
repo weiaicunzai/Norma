@@ -59,10 +59,10 @@ def main(cfg, dataset, fold):
         raise ValueError('dataset value error')
 
     dm = WSIDataModule(
-        # train_batch_size=8,
-        # test_batch_size=8,
-        train_batch_size=1,
-        test_batch_size=1,
+        train_batch_size=8,
+        test_batch_size=8,
+        # train_batch_size=1,
+        # test_batch_size=1,
         settings=settings,
         fold=fold
     )

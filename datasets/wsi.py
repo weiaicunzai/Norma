@@ -973,6 +973,26 @@ class WSIJSON(PatchLabelMixIn, FiterCoordsMixIn):
 
             yield data
 
+class WSIJSONLazyInitializer:
+    def __init__(self, json_path, direction, patch_json_dir=None):
+        # self._initialized = False
+        # self._data = None
+        self.wsi_class = WSIJSON
+        self.json_path = json_path
+        self.direction = direction
+        self.patch_json_dir = patch_json_dir
+
+
+    @property
+    def data(self):
+        return self.wsi_class(
+            self.json_path,
+            self.direction,
+            self.patch_json_dir
+        )
+
+
+
 # class WSILMDBPatch:
 #     def __init__(self, json_path, direction, patch_label_dir, env=None):
 

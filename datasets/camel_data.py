@@ -22,7 +22,7 @@ import lmdb
 from struct import unpack
 from torch.utils.data import default_collate
 
-from datasets.wsi import WSIJSON
+from datasets.wsi import WSIJSON, WSIJSONLazyInitializer
 
 
 
@@ -1315,10 +1315,14 @@ class CamelData(data.IterableDataset):
 
 # class CAM16(WSIDataset):
 
-def get_wsi(slide, json_dir):
+def get_wsi(slide, json_dir, lazy):
     json_path = os.path.join(json_dir, slide + '.json')
     print('load json {}'.format(json_path))
-    return WSIJSON(json_path=json_path, direction=0)
+    if not lazy:
+        return WSIJSON(json_path=json_path, direction=0)
+    else:
+        return WSIJSONLazyInitializer(json_path=json_path, direction=0)
+
 
 class WSIDataset1(data.IterableDataset):
     # def __init__(self, data_set, lmdb_path, batch_size, drop_last=False, allow_reapt=False, transforms=None, dist=None):
@@ -1706,7 +1710,7 @@ class WSIDataset1(data.IterableDataset):
 
 class WSIDataset(data.IterableDataset):
 
-    def __init__(self, settings, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None):
+    def __init__(self, settings, data_set, fold, batch_size, drop_last=False, allow_reapt=False, dist=None, lazy=True):
         """the num_worker of each CAMLON16 dataset is one, """
         # assert data_set in ['train', 'val']
         print(self)
@@ -1722,6 +1726,7 @@ class WSIDataset(data.IterableDataset):
         # self.trans = transforms
         # from conf.camlon16 import settings
         self.settings = settings
+        self.lazy = lazy
 
         # self.orig_wsis = self.get_wsis(data_set=data_set)
         self.orig_wsis = self.get_wsis(data_set=self.data_set, fold=self.fold)
@@ -1744,6 +1749,7 @@ class WSIDataset(data.IterableDataset):
         self.cache = {}
 
         self.if_shuffle = True
+
 
     def shuffle_coords(self, wsi):
         wsi = copy.deepcopy(wsi)
@@ -1834,7 +1840,7 @@ class WSIDataset(data.IterableDataset):
         # wsis = pool.map(fn, slide_ids.tolist())
         wsis = []
         for slide_id in slide_ids:
-            wsi = get_wsi(slide_id, self.settings.json_dir)
+            wsi = get_wsi(slide_id, self.settings.json_dir, self.lazy)
             wsis.append(wsi)
 
             # if data_set == 'train':
@@ -2086,6 +2092,9 @@ class WSIDataset(data.IterableDataset):
             self.seed += 1024
 
             batch_wsi = wsis[idx : idx + self.batch_size]
+
+            if self.lazy:
+                batch_wsi = [x.data for x in batch_wsi]
 
             batch_wsi = [self.shuffle_coords(x) for x in batch_wsi]
 

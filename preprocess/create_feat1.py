@@ -26,7 +26,7 @@ from torchvision import transforms
 # from PIL import Image
 import  lmdb
 import json
-# from preprocess.utils import get_vit256
+from preprocess.utils import get_vit256
 from preprocess.resnet_custom import resnet50_baseline
 
 def eval_transforms(patch_size, pretrained=False):
@@ -51,7 +51,7 @@ def eval_transforms(patch_size, pretrained=False):
 def get_args_parser():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--dataset', required=True, default=None)
-    # parser.add_argument('--ckpt', required=True, default=None)
+    parser.add_argument('--ckpt', type=str, default=None)
     parser.add_argument('--cont', action='store_true', help='enable')
 
     return parser.parse_args()
@@ -112,6 +112,7 @@ def get_file_path(settings):
 
 def create_dataloader(settings):
     datasets = []
+    # bs = 1024 * 2
     bs = 1024
     trans = eval_transforms(settings.patch_size, pretrained=True)
     for path in get_file_path(settings):
@@ -140,7 +141,8 @@ def write_lmdb(patch_ids, feats, settings):
             # and 3 times faster to decode (struct.unpack+torch.tensor)
             # than torch.load from byte string
 
-            feat = struct.pack('1024f', *feat)
+            # feat = struct.pack('1024f', *feat)
+            feat = struct.pack('384f', *feat)
             patch_id = patch_id.encode()
             try:
                 txn.put(patch_id, feat)
@@ -170,7 +172,8 @@ if __name__ == '__main__':
     # bs = 1024
     # dataloader = DataLoader(dataset, num_workers=16, batch_size=bs)
 
-    model = resnet50_baseline(pretrained=True).cuda()
+    # model = resnet50_baseline(pretrained=True).cuda()
+    model = get_vit256(args.ckpt).cuda()
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
     model = model.eval()

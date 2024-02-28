@@ -2,6 +2,11 @@
 import openslide
 import numpy as np
 import cv2
+import openslide
+import os
+import sys
+import csv
+sys.path.append(os.getcwd())
 
 
 
@@ -24,17 +29,59 @@ def vis_mask(wsi_path, mask_path, seg_level):
 
     return res
 
+def get_filenames(settings):
 
+    csv_path = settings.file_list_csv
+    with open(csv_path, newline='') as csvfile:
+        spamreader = csv.DictReader(csvfile)
+        for row in spamreader:
+            # if row['slide_id'] != 'TCGA-BH-A2L8-01Z-00-DX1.ACA51CA9-3C38-48A6-B4A9-C12FFAB9AB56.svs':
+            #     continue
+            yield row['slide_id'], row['label']
+
+def read_img(wsi_path):
+
+    wsi = openslide.OpenSlide(wsi_path)
+    # level = 0
+    # dims = None
+    # count = 0
+    for l, d in enumerate(wsi.level_dimensions):
+            level = l
+            dims = d
+            if level == 4:
+            # if max(d) < 10000:
+                break
+
+    print('read img from wsi {} at level {} dim {}'.format(wsi_path, level, dims))
+    img = wsi.read_region((0,0), l, dims).convert('RGB')
+
+
+    return img
 
 
 if __name__ == '__main__':
 
-    wsi_path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/normal/normal_045.tif'
-    mask_path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_mask/normal/normal_045.png'
+    # wsi_path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training/normal/normal_045.tif'
+    # mask_path = '/data/yunpan/syh/PycharmProjects/CGC-Net/data_baiyu/CAMELYON16/training_mask/normal/normal_045.png'
 
-    out = vis_mask(wsi_path, mask_path, 6)
+    # out = vis_mask(wsi_path, mask_path, 6)
 
-    cv2.imwrite('test.jpg', out)
+    # cv2.imwrite('test.jpg', out)
+    from conf.camlon16 import settings
+    for idx, (filename, label) in enumerate(get_filenames(settings)):
+        # print(filename)
+        # if filename == 'normal_043'
+        # print(filename)
+        if 'normal_043' not in filename:
+            continue
+        print(filename)
+        wsi_path = os.path.join(settings.wsi_dir, filename)
+        img = read_img(wsi_path)
+        print(img)
+        img.save('tmp/idx{}_label_{}.jpg'.format(filename, label))
+        # break
+
+
 
 
 

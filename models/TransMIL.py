@@ -456,15 +456,15 @@ class TransMIL(nn.Module):
 
         #--->translayer
         # self.pos_layer = PPEG(dim=net_dim)
-        # self.pos_layer1d = PEG1D(dim=net_dim)
+        self.pos_layer1d = PEG1D(dim=net_dim)
         # self.layer1 = TransLayer(dim=net_dim)
         # self.layer2 = TransLayer(dim=net_dim)
 
-        # self.layer1 = TransLayerSelfAttn(dim=net_dim)
-        # self.layer2 = TransLayerSelfAttn(dim=net_dim)
+        self.layer1 = TransLayerSelfAttn(dim=net_dim)
+        self.layer2 = TransLayerSelfAttn(dim=net_dim)
 
-        self.layer1 = SelfAttnMEMLayer(dim=net_dim, use_pos=False)
-        self.layer2 = SelfAttnMEMLayer(dim=net_dim, use_pos=True)
+        # self.layer1 = SelfAttnMEMLayer(dim=net_dim, use_pos=False)
+        # self.layer2 = SelfAttnMEMLayer(dim=net_dim, use_pos=True)
 
         # self.layer1 = Transformer(
         #     dim=net_dim,
@@ -566,39 +566,39 @@ class TransMIL(nn.Module):
 
         # ---->single layer
         #=============================================
-        # if mems is not None:
-        #    h = torch.cat((h, mems), dim=1)
+        if mems is not None:
+           h = torch.cat((h, mems), dim=1)
 
-        # #---->pad
-        # H = h.shape[1]
-        # _H, _W = int(np.ceil(np.sqrt(H))), int(np.ceil(np.sqrt(H)))
-        # add_length = _H * _W - H
-        # h = torch.cat([h, h[:,:add_length,:]],dim = 1) #[B, N, 512]
+        #---->pad
+        H = h.shape[1]
+        _H, _W = int(np.ceil(np.sqrt(H))), int(np.ceil(np.sqrt(H)))
+        add_length = _H * _W - H
+        h = torch.cat([h, h[:,:add_length,:]],dim = 1) #[B, N, 512]
 
-        # #---->cls_token
-        # B = h.shape[0]
-        # cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
-        # h = torch.cat((cls_tokens, h), dim=1)
+        #---->cls_token
+        B = h.shape[0]
+        cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
+        h = torch.cat((cls_tokens, h), dim=1)
 
-        # # if mems is None:
-        #    # mems = [None, None]
+        # if mems is None:
+           # mems = [None, None]
 
-        # h = self.layer1(h) #[B, N, 512]
+        h = self.layer1(h) #[B, N, 512]
 
-        # #---->PPEG
+        #---->PPEG
         # h = self.pos_layer(h, _H, _W) #[B, N, 512]
 
-        # #---->PEG1D
-        # # cls_tokens = h[:, 0, :].unsqueeze(dim=1)
-        # # h = h[:, 1:, :]
-        # # h = self.pos_layer1d(h) #[B, N, 512]
-        # # h = torch.cat((cls_tokens, h), dim=1)
-        # # h = self.pos_layer1d(h) #[B, N, 512]
+        #---->PEG1D
+        cls_tokens = h[:, 0, :].unsqueeze(dim=1)
+        h = h[:, 1:, :]
+        h = self.pos_layer1d(h) #[B, N, 512]
+        h = torch.cat((cls_tokens, h), dim=1)
+        h = self.pos_layer1d(h) #[B, N, 512]
 
 
-        # h = self.layer2(h) #[B, N, 512]
-        # #---->Translayer
-        # mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
+        h = self.layer2(h) #[B, N, 512]
+        #---->Translayer
+        mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
 
 
 
@@ -606,21 +606,21 @@ class TransMIL(nn.Module):
         # ===========================================
 
         # ---->cls_token
-        B = h.shape[0]
-        cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
-        h = torch.cat((cls_tokens, h), dim=1)
+        # B = h.shape[0]
+        # cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
+        # h = torch.cat((cls_tokens, h), dim=1)
 
-        if mems is None:
-           mems = [None, None]
+        # if mems is None:
+        #    mems = [None, None]
 
-        hids = []
-        h = self.layer1(h, mem=mems[0]) #[B, N, 512]
-        hids.append(h[:, 0])
+        # hids = []
+        # h = self.layer1(h, mem=mems[0]) #[B, N, 512]
+        # hids.append(h[:, 0])
 
-        h = self.layer2(h, mems[1]) #[B, N, 512]
-        hids.append(h[:, 0])
+        # h = self.layer2(h, mems[1]) #[B, N, 512]
+        # hids.append(h[:, 0])
 
-        mems = self._update_all_mems(mems, hids)
+        # mems = self._update_all_mems(mems, hids)
 
 
         #=============================================

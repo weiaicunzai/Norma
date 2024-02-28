@@ -392,9 +392,11 @@ def draw_patch_seq(img, patch_id, cnt, level_dims, level_factor):
     # text_start = start[0], start[1] + int(1024 / downsample_factor / 1.5)
     # text_start = start[0], start[1] + int(patch_size / downsample_factor / 1.5)
     # bot_left corrner
+    # text_start = start[0] + int(patch_size * scaled_factor / downsample_factor_x / 20), start[1] + int(patch_size * scaled_factor / downsample_factor_y / 1.5)
     text_start = start[0] + int(patch_size * scaled_factor / downsample_factor_x / 20), start[1] + int(patch_size * scaled_factor / downsample_factor_y / 1.5)
     # text_start = start[0], start[1] + int(patch_size / downsample_factor)
-    cv2.putText(img, str(cnt), text_start, cv2.FONT_HERSHEY_COMPLEX, fontScale=0.25, color=(255,0,0), thickness=1, bottomLeftOrigin=False)
+    # cv2.putText(img, str(cnt), text_start, cv2.FONT_HERSHEY_COMPLEX, fontScale=0.25, color=(255,0,0), thickness=1, bottomLeftOrigin=False)
+    # cv2.putText(img, str(cnt), text_start, cv2.FONT_HERSHEY_COMPLEX, fontScale=10, color=(255,0,0), thickness=1, bottomLeftOrigin=False)
 
     return img
 
@@ -498,7 +500,7 @@ if __name__  == '__main__':
     img = wsi.read_region((0,0), seg_level, wsi.level_dimensions[seg_level]).convert('RGB')
     img = np.array(img)
 
-    img = vis_mask(img, mask_path)
+    # img = vis_mask(img, mask_path)
 
     json_path = os.path.join(settings.json_dir, os.path.splitext(slide_id)[0] + '.json')
     direction = random.choice(range(8))

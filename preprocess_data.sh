@@ -1,12 +1,12 @@
-export CUDA_VISIBLE_DEVICES=0,1
+export CUDA_VISIBLE_DEVICES=0
 # DATASET=brac
 # DATA_DIRECTORY=/data/smb/syh/WSI_cls/TCGA_BRCA/img/
 # RESULTS_DIRECTORY=/data/smb/syh/WSI_cls/TCGA_BRCA/mask/
 
 ROOT=/data/smb/syh/WSI_cls/
 # DATASET=cam16
-# DATASET=brac
-DATASET=lung
+DATASET=brac
+#DATASET=lung
 
 
 # DATA_DIRECTORY=/data/smb/syh/WSI_cls/camelyon16/img
@@ -17,7 +17,7 @@ RESULTS_DIRECTORY=$ROOT/$DATASET/mask
 CLAM_DIRECTORY=$ROOT/CLAM
 CURRENT_DIRECTORY=`pwd`
 # CKPT_PATH=/data/smb/syh/WSI_cls/vit256_small_dino.pth
-# CKPT_PATH=$ROOT/vit256_small_dino.pth
+CKPT_PATH=$ROOT/vit256_small_dino.pth
 
 
 
@@ -40,5 +40,5 @@ cd $CURRENT_DIRECTORY
 #
 ## extract patch into feat
 # python -u preprocess/create_feat_lmdb.py --dataset $DATASET
-python -u preprocess/create_feat1.py --dataset $DATASET
+python -u preprocess/create_feat1.py --dataset $DATASET --ckpt  $CKPT_PATH
 #  --ckpt $CKPT_PATH

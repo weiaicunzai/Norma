@@ -440,9 +440,8 @@ class PEG1D(nn.Module):
 class TransMIL(nn.Module):
     def __init__(self, n_classes, max_len):
         super(TransMIL, self).__init__()
-        # net_dim = 512
-        net_dim = 512
         # net_dim = 384
+        net_dim = 512
         # self.pos_layer = PPEG(dim=512)
         # self.pos_layer1d = PEG1D(dim=net_dim)
         # self._fc1 = nn.Sequential(nn.Linear(1024, 512), nn.ReLU())
@@ -566,8 +565,8 @@ class TransMIL(nn.Module):
 
         # ---->single layer
         #=============================================
-        if mems is not None:
-           h = torch.cat((h, mems), dim=1)
+        # if mems is not None:
+        #    h = torch.cat((h, mems), dim=1)
 
         #---->pad
         H = h.shape[1]
@@ -598,7 +597,7 @@ class TransMIL(nn.Module):
 
         h = self.layer2(h) #[B, N, 512]
         #---->Translayer
-        mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
+        # mems = self._update_mems(mems, h[:, 0].unsqueeze(dim=1))
 
 
 

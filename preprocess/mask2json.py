@@ -25,6 +25,8 @@ class MaskConverter:
         self.level_0_mag = self.get_level_0_mag()
 
         self.mask = cv2.imread(mask_path, -1)
+        print(mask_path)
+        cv2.imwrite('masks.jpg', self.mask)
 
         self.mask_scale = self.get_mask_scale()
 
@@ -71,6 +73,10 @@ class MaskConverter:
         """
         row_num, col_num = self.mask.shape[:2]
 
+        # print('mask', self.mask.mean())
+        # cv2.imwrite('masks.jpg', self.mask)
+
+
         kernel_size = self.kernel_size
 
         pad_row = kernel_size - row_num % kernel_size
@@ -78,6 +84,8 @@ class MaskConverter:
 
 
         padded_mask = np.pad(self.mask, ((0, pad_row), (0, pad_col)), mode='constant', constant_values=(0, 0))
+
+        # cv2.imwrite('pad.jpg', padded_mask)
 
         padded_row, padded_col = padded_mask.shape[:2]
 
@@ -97,6 +105,8 @@ class MaskConverter:
 
         mean_values = reshape_mask.mean(axis=(1, 3))
         mean_mask = mean_values > reshape_mask.max() * self.fg_thresh
+        # print(mean_mask.mean())
+        # print(mean_values)
 
         return mean_mask.sum()
 
@@ -347,6 +357,8 @@ def get_filenames(settings):
         for row in spamreader:
             # if row['slide_id'] != 'TCGA-BH-A2L8-01Z-00-DX1.ACA51CA9-3C38-48A6-B4A9-C12FFAB9AB56.svs':
             #     continue
+            if row['slide_id'] != 'test_116.tif':
+                continue
             yield row['slide_id'], row['label']
 
 def get_args_parser():

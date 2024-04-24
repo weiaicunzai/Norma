@@ -1840,6 +1840,8 @@ class WSIDataset(data.IterableDataset):
         # wsis = pool.map(fn, slide_ids.tolist())
         wsis = []
         for slide_id in slide_ids:
+            if slide_id == 'test_116':
+                continue
             wsi = get_wsi(slide_id, self.settings.json_dir, self.lazy)
             wsis.append(wsi)
 
@@ -1987,6 +1989,7 @@ class WSIDataset(data.IterableDataset):
         with self.env.begin(write=False) as txn:
             img_stream = txn.get(patch_id.encode())
             feat = unpack('1024f', img_stream)
+            # feat = unpack('384f', img_stream)
             feat = torch.tensor(feat)
 
         return feat

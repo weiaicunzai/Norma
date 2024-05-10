@@ -621,7 +621,6 @@ class TransMIL(nn.Module):
 
         # mems = self._update_all_mems(mems, hids)
 
-
         #=============================================
 
 

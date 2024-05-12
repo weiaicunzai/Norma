@@ -1,12 +1,13 @@
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=3
 # DATASET=brac
 # DATA_DIRECTORY=/data/smb/syh/WSI_cls/TCGA_BRCA/img/
 # RESULTS_DIRECTORY=/data/smb/syh/WSI_cls/TCGA_BRCA/mask/
 
 ROOT=/data/smb/syh/WSI_cls/
-DATASET=cam16
-# DATASET=brac
-#DATASET=lung
+# DATASET=cam16
+DATASET=brac
+# DATASET=lung
+EXTR=ctranspatch
 
 
 # DATA_DIRECTORY=/data/smb/syh/WSI_cls/camelyon16/img
@@ -17,7 +18,9 @@ RESULTS_DIRECTORY=$ROOT/$DATASET/mask
 CLAM_DIRECTORY=$ROOT/CLAM
 CURRENT_DIRECTORY=`pwd`
 # CKPT_PATH=/data/smb/syh/WSI_cls/vit256_small_dino.pth
-CKPT_PATH=$ROOT/vit256_small_dino.pth
+#CKPT_PATH=$ROOT/vit256_small_dino.pth # dino
+# CKPT_PATH=$ROOT/checkpoint.pth # transpath
+CKPT_PATH=$ROOT/ctranspath.pth # transpath
 
 
 
@@ -40,5 +43,5 @@ python -u preprocess/mask2json.py --dataset $DATASET
 #
 ## extract patch into feat
 # python -u preprocess/create_feat_lmdb.py --dataset $DATASET
-# python -u preprocess/create_feat1.py --dataset $DATASET --ckpt  $CKPT_PATH
+python -u preprocess/create_feat1.py --dataset $DATASET --ckpt  $CKPT_PATH --feat_extr  $EXTR
 #  --ckpt $CKPT_PATH

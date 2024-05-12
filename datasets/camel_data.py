@@ -1750,12 +1750,18 @@ class WSIDataset(data.IterableDataset):
 
         self.if_shuffle = True
 
+    def copy_wsi(self, wsi):
+        shallow_wsi = copy.copy(wsi)
+        shallow_wsi.coords[shallow_wsi.direction] = copy.deepcopy(wsi.coords[wsi.direction])
+
+        return shallow_wsi
 
     def shuffle_coords(self, wsi):
-        wsi = copy.deepcopy(wsi)
-        for i in range(len(wsi.coords)):
-            random.seed(self.seed)
-            random.shuffle(wsi.coords[i])
+        random.seed(self.seed)
+        # wsi = copy.deepcopy(wsi)
+        wsi = self.copy_wsi(wsi)
+        # for i in range(len(wsi.coords)):
+        random.shuffle(wsi.coords[wsi.direction])
 
         return wsi
 
@@ -1988,8 +1994,7 @@ class WSIDataset(data.IterableDataset):
     def read_feat(self, patch_id):
         with self.env.begin(write=False) as txn:
             img_stream = txn.get(patch_id.encode())
-            feat = unpack('1024f', img_stream)
-            # feat = unpack('384f', img_stream)
+            feat = unpack('768f', img_stream)
             feat = torch.tensor(feat)
 
         return feat
@@ -2098,6 +2103,8 @@ class WSIDataset(data.IterableDataset):
 
             if self.lazy:
                 batch_wsi = [x.data for x in batch_wsi]
+
+            # shadow_wsi
 
             batch_wsi = [self.shuffle_coords(x) for x in batch_wsi]
 

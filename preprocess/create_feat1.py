@@ -28,6 +28,9 @@ import  lmdb
 import json
 from preprocess.utils import get_vit256
 from preprocess.resnet_custom import resnet50_baseline
+# from preprocess.TransPath.get_features_CTransPath import transpath_model, transpath_eval
+from preprocess.TransPath.get_features_CTransPath import ctranspath, trnsfrms_val
+
 
 def eval_transforms(patch_size, pretrained=False):
 	if pretrained:
@@ -53,6 +56,8 @@ def get_args_parser():
     parser.add_argument('--dataset', required=True, default=None)
     parser.add_argument('--ckpt', type=str, default=None)
     parser.add_argument('--cont', action='store_true', help='enable')
+    # parser.add_argument('--name', action='store_true', help='enable')
+    parser.add_argument('--feat_extr', required=True, type=str)
 
     return parser.parse_args()
 
@@ -110,11 +115,11 @@ def get_file_path(settings):
             path = wsi_path, json_path
             yield path
 
-def create_dataloader(settings):
+def create_dataloader(settings, trans):
     datasets = []
     # bs = 1024 * 2
     bs = 1024
-    trans = eval_transforms(settings.patch_size, pretrained=True)
+    # trans = eval_transforms(settings.patch_size, pretrained=True)
     for path in get_file_path(settings):
         datasets.append(WSI(path, trans=trans))
 
@@ -122,12 +127,12 @@ def create_dataloader(settings):
         # in case we do not have enough RAM
         # we only process 32 wsis at the same time
         if len(datasets) == 32:
-            yield DataLoader(ConcatDataset(datasets), num_workers=16, batch_size=bs)
+            yield DataLoader(ConcatDataset(datasets), num_workers=4, batch_size=bs)
             datasets = []
 
     # return ConcatDataset(datasets)
     if datasets:
-        yield DataLoader(ConcatDataset(datasets), num_workers=16, batch_size=bs)
+        yield DataLoader(ConcatDataset(datasets), num_workers=4, batch_size=bs)
 
 def write_lmdb(patch_ids, feats, settings):
     db_size = 1 << 42
@@ -142,7 +147,8 @@ def write_lmdb(patch_ids, feats, settings):
             # than torch.load from byte string
 
             # feat = struct.pack('1024f', *feat)
-            feat = struct.pack('384f', *feat)
+            # print(len(feat))
+            feat = struct.pack('{}f'.format(len(feat)), *feat)
             patch_id = patch_id.encode()
             try:
                 txn.put(patch_id, feat)
@@ -150,6 +156,49 @@ def write_lmdb(patch_ids, feats, settings):
                 print(e)
                 raise ValueError('wrong ????')
 
+
+def get_model(name, weight):
+    if name == 'transpatch':
+        model = transpath_model(weight)
+
+    if name == 'ctranspatch':
+        model = ctranspath()
+        # model = ctranspath()
+        model.head = torch.nn.Identity()
+        td = torch.load(weight)
+        model.load_state_dict(td['model'], strict=True)
+
+
+        model.eval()
+
+    elif name =='dino':
+        model = get_vit256(weight)
+
+    elif name == 'imagenet':
+        model = resnet50_baseline(weight)
+
+    else:
+        raise ValueError(
+            'wrong name {}'.format(name)
+        )
+
+    return model
+
+def get_trans(name, settings):
+    if name == 'ctranspatch':
+        mean = (0.485, 0.456, 0.406)
+        std = (0.229, 0.224, 0.225)
+        trans = transforms.Compose(
+            [
+                transforms.Resize(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean = mean, std = std)
+            ]
+        )
+
+    # elif name == ''
+
+    return trans
 
 if __name__ == '__main__':
     args = get_args_parser()
@@ -173,19 +222,27 @@ if __name__ == '__main__':
     # dataloader = DataLoader(dataset, num_workers=16, batch_size=bs)
 
     # model = resnet50_baseline(pretrained=True).cuda()
-    model = get_vit256(args.ckpt).cuda()
+    # model = get_vit256(args.ckpt).cuda()
+    # model = transpath_model()
+    model = get_model(args.feat_extr, args.ckpt)
+    model = model.cuda()
+
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
     model = model.eval()
 
+    trans = get_trans(args.feat_extr, settings)
+    print(trans)
     count = 0
-    for dataloader in create_dataloader(settings):
+    for dataloader in create_dataloader(settings, trans):
         t1 = time.time()
         for idx, batch in enumerate(dataloader):
 
             img = batch['img'].cuda(non_blocking=True)
             with torch.no_grad():
-               out = model(img)
+                print(img.shape)
+                out = model(img)
+                print(out.shape)
             write_lmdb(batch['patch_id'], out.cpu().tolist(), settings)
 
             print(idx, 'avg batch time', (time.time() - t1) / (idx + 1), 'avg img time', (time.time() - t1) / 1024 / (idx + 1))

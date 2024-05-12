@@ -115,7 +115,8 @@ class Settings:
         self.file_list_csv = 'datasets/dataset_csv/cam16/cam16.csv'
         self.patch_dir = os.path.join(self.root, 'patch', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
         self.patch_label_dir = os.path.join(self.root, 'patch_label', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
-        self.feat_dir = os.path.join(self.root, 'feat', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
+        # self.feat_dir = os.path.join(self.root, 'feat', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
+        self.feat_dir = os.path.join(self.root, 'feat_ctranspath', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
         self.anno_dir = os.path.join(self.root, 'anno')
         self.split_dir = 'datasets/splits/cam16'
         self.num_classes = 2

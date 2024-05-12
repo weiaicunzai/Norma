@@ -40,4 +40,5 @@ if __name__ == '__main__':
     res = pool.map(get_length, get_filelist(settings))
 
     print('max', max(res))
+    print('sum', sum(res))
     print('mean', statistics.mean(res))

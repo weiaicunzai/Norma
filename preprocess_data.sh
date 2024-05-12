@@ -1,13 +1,15 @@
-export CUDA_VISIBLE_DEVICES=3
+export CUDA_VISIBLE_DEVICES=0
 # DATASET=brac
 # DATA_DIRECTORY=/data/smb/syh/WSI_cls/TCGA_BRCA/img/
 # RESULTS_DIRECTORY=/data/smb/syh/WSI_cls/TCGA_BRCA/mask/
 
 ROOT=/data/smb/syh/WSI_cls/
-# DATASET=cam16
-DATASET=brac
+DATASET=cam16
+# DATASET=brac
 # DATASET=lung
-EXTR=ctranspatch
+# EXTR=ctranspatch
+# EXTR=lunti
+EXTR=uni
 
 
 # DATA_DIRECTORY=/data/smb/syh/WSI_cls/camelyon16/img
@@ -20,7 +22,9 @@ CURRENT_DIRECTORY=`pwd`
 # CKPT_PATH=/data/smb/syh/WSI_cls/vit256_small_dino.pth
 #CKPT_PATH=$ROOT/vit256_small_dino.pth # dino
 # CKPT_PATH=$ROOT/checkpoint.pth # transpath
-CKPT_PATH=$ROOT/ctranspath.pth # transpath
+# CKPT_PATH=$ROOT/ctranspath.pth # transpath
+# CKPT_PATH=$ROOT/dino_vit_small_patch16_ep200.torch # lunit
+CKPT_PATH=$ROOT/pytorch_model.bin # lunit
 
 
 

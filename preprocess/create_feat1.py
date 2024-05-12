@@ -29,7 +29,8 @@ import json
 from preprocess.utils import get_vit256
 from preprocess.resnet_custom import resnet50_baseline
 # from preprocess.TransPath.get_features_CTransPath import transpath_model, transpath_eval
-from preprocess.TransPath.get_features_CTransPath import ctranspath, trnsfrms_val
+# from preprocess.TransPath.get_features_CTransPath import ctranspath, trnsfrms_val
+from preprocess.lunti import vit_small
 
 
 def eval_transforms(patch_size, pretrained=False):
@@ -177,11 +178,18 @@ def get_model(name, weight):
     elif name == 'imagenet':
         model = resnet50_baseline(weight)
 
+    elif name == 'uni':
+        from uni import uni
+        model = uni(weight)
+
+    elif name == 'lunti':
+        model = vit_small(pretrained=True, progress=False, weight=weight, key="DINO_p16", patch_size=16)
     else:
         raise ValueError(
             'wrong name {}'.format(name)
         )
 
+    model = model.eval()
     return model
 
 def get_trans(name, settings):
@@ -196,7 +204,26 @@ def get_trans(name, settings):
             ]
         )
 
-    # elif name == ''
+    elif name == 'lunti':
+        mean = [ 0.70322989, 0.53606487, 0.66096631 ]
+        std = [ 0.21716536, 0.26081574, 0.20723464 ]
+        trans = transforms.Compose(
+            [
+                transforms.Resize(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean = mean, std = std)
+            ]
+        )
+
+    elif name =='uni':
+        trans = transforms.Compose(
+            [
+                transforms.Resize(224),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+            ]
+        )
+
 
     return trans
 
@@ -243,6 +270,9 @@ if __name__ == '__main__':
                 print(img.shape)
                 out = model(img)
                 print(out.shape)
+
+
+            # import sys; sys.exit()
             write_lmdb(batch['patch_id'], out.cpu().tolist(), settings)
 
             print(idx, 'avg batch time', (time.time() - t1) / (idx + 1), 'avg img time', (time.time() - t1) / 1024 / (idx + 1))

@@ -14,7 +14,9 @@ class Settings:
         self.file_list_csv = 'datasets/dataset_csv/lung/lung.csv'
         self.patch_dir = os.path.join(self.root, 'patch', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
         # self.feat_dir = os.path.join(self.root, 'feat', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
-        self.feat_dir = os.path.join(self.root, 'feat_ctranspath', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
+        # self.feat_dir = os.path.join(self.root, 'feat_ctranspath', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
+        # self.feat_dir = os.path.join(self.root, 'feat_lunti', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
+        self.feat_dir = os.path.join(self.root, 'uni', 'patch_size_{}_at_mag_{}'.format(self.patch_size, self.mag))
         self.split_dir = 'datasets/splits/lung'
         self.num_classes = 2
         self.max_len = 46543
